@@ -624,22 +624,31 @@ export function McpBarChart({ data }) {
 }
 
 const EVENT_TYPE_STYLES = {
-  sessionStart: { symbol: '▶', color: 'text-sky-400' },
-  stop: { symbol: '■', color: 'text-slate-400' },
-  afterAgentThought: { symbol: '◉', color: 'text-violet-400' },
-  afterFileEdit: { symbol: '✎', color: 'text-emerald-400' },
-  afterTabFileEdit: { symbol: '✎', color: 'text-emerald-400' },
-  beforeShellExecution: { symbol: '$', color: 'text-amber-400' },
-  afterShellExecution: { symbol: '$', color: 'text-amber-300' },
-  beforeMCPExecution: { symbol: '⊞', color: 'text-cyan-400' },
-  afterMCPExecution: { symbol: '⊞', color: 'text-cyan-300' },
-  postToolUse: { symbol: '⚙', color: 'text-pink-400' },
+  sessionStart: { symbol: '▶', color: 'text-sky-400', label: 'session-start' },
+  stop: { symbol: '■', color: 'text-slate-400', label: 'stop' },
+  afterAgentThought: { symbol: '◉', color: 'text-violet-400', label: 'thought' },
+  afterFileEdit: { symbol: '✎', color: 'text-emerald-400', label: 'file-edit' },
+  afterTabFileEdit: { symbol: '✎', color: 'text-emerald-400', label: 'tab-edit' },
+  beforeShellExecution: { symbol: '$', color: 'text-amber-400', label: 'shell-before' },
+  afterShellExecution: { symbol: '$', color: 'text-amber-300', label: 'shell-after' },
+  beforeMCPExecution: { symbol: '⊞', color: 'text-cyan-400', label: 'mcp-before' },
+  afterMCPExecution: { symbol: '⊞', color: 'text-cyan-300', label: 'mcp-after' },
+  postToolUse: { symbol: '⚙', color: 'text-pink-400', label: 'tool-use' },
 };
 
-const DEFAULT_EVENT_STYLE = { symbol: '·', color: 'text-slate-400' };
+const DEFAULT_EVENT_STYLE = { symbol: '·', color: 'text-slate-400', label: 'unknown' };
 
 function getEventStyle(hookEvent) {
   return EVENT_TYPE_STYLES[hookEvent] ?? DEFAULT_EVENT_STYLE;
+}
+
+function abbreviateModel(model) {
+  return model
+    .replace(/^claude-/, 'cl-')
+    .replace(/^gpt-/, 'gpt-')
+    .replace(/^gemini-/, 'gem-')
+    .replace(/-\d{4}-\d{2}-\d{2}$/, '')
+    .replace(/-latest$/, '');
 }
 
 export function Events({ events = [] }) {
@@ -647,7 +656,7 @@ export function Events({ events = [] }) {
   const dense = mode === 'dense';
   const expanded = mode === 'expanded';
   const listRef = useRef(null);
-  const padding = expanded ? 'px-6 py-5' : dense ? 'px-3 py-2' : 'px-4 py-3';
+  const padding = expanded ? 'px-6 py-5' : dense ? 'px-2 py-2' : 'px-3 py-3';
   const textSize = expanded ? 'text-sm' : dense ? 'text-[10px]' : 'text-xs';
   const height = expanded ? 'h-80' : dense ? 'h-36' : 'h-48';
 
@@ -665,14 +674,31 @@ export function Events({ events = [] }) {
     );
   }
 
+  const typeColCh = expanded ? '26ch' : dense ? '20ch' : '24ch';
+  const modelColCh = expanded ? '22ch' : dense ? '16ch' : '20ch';
+  const gridCols = `8ch 2ch ${typeColCh} 5ch ${modelColCh} 1fr`;
+
   return (
     <div ref={listRef} className={`rounded-lg border border-border bg-panel ${padding} ${height} overflow-y-auto`}>
       {events.map((event) => {
         const style = getEventStyle(event.hook_event);
+        const time = event.time ?? '';
+        const detail = event.detail ?? event.text ?? '';
+        const model = event.model ? abbreviateModel(event.model) : '';
         return (
-          <div key={event.id} className={`flex items-baseline gap-1.5 font-mono ${textSize} leading-relaxed`}>
-            <span className={`shrink-0 ${style.color}`}>{style.symbol}</span>
-            <span className="text-slate-400">{event.text}</span>
+          <div
+            key={event.id}
+            className={`grid gap-x-3 font-mono ${textSize} leading-relaxed`}
+            style={{ gridTemplateColumns: gridCols }}
+          >
+            <span className="text-slate-600 tabular-nums">{time}</span>
+            <span className={style.color}>{style.symbol}</span>
+            <span className={`${style.color} opacity-75 truncate`}>{event.hook_event}</span>
+            <span className="text-red-400 font-semibold">
+              {event.verdict ? 'DENY' : ''}
+            </span>
+            <span className="text-slate-500 truncate">{model}</span>
+            <span className="text-slate-400 truncate min-w-0">{detail}</span>
           </div>
         );
       })}

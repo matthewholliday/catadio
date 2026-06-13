@@ -1,6 +1,57 @@
 import { describeEvent } from './commentary.js';
 import { getEvents } from './store.js';
 
+function fmtTimestamp(unixSec) {
+  return new Date(unixSec * 1000).toISOString().slice(11, 19);
+}
+
+function truncateStr(value, max = 120) {
+  const s = String(value ?? '');
+  return s.length <= max ? s : `${s.slice(0, max)}\u2026`;
+}
+
+function extractEventDetail(event) {
+  const ctx = event.context_details ?? {};
+  const parts = [];
+
+  if (event.hook_event === 'beforeShellExecution' || event.hook_event === 'afterShellExecution') {
+    const cmd = ctx.command ?? ctx.text ?? '';
+    if (cmd) parts.push(truncateStr(cmd, 100));
+    if (event.hook_event === 'afterShellExecution') {
+      const code = ctx.exit_code ?? ctx.exitCode;
+      if (code != null) parts.push(`exit=${code}`);
+    }
+  }
+
+  if (event.hook_event === 'afterFileEdit' || event.hook_event === 'afterTabFileEdit') {
+    const files =
+      ctx.files ??
+      ctx.edits?.map((ed) => ed.path ?? ed.file ?? ed.file_path).filter(Boolean);
+    if (files?.length) parts.push(truncateStr(files.join(', '), 100));
+  }
+
+  if (event.hook_event === 'afterMCPExecution' || event.hook_event === 'beforeMCPExecution') {
+    const server = ctx.metadata?.server ?? ctx.server ?? ctx.tool_name ?? ctx.toolName;
+    if (server) parts.push(truncateStr(server, 60));
+  }
+
+  if (event.hook_event === 'postToolUse') {
+    const tool = ctx.tool_name ?? ctx.toolName;
+    if (tool) parts.push(String(tool));
+  }
+
+  if (event.hook_event === 'afterAgentThought') {
+    const ms = ctx.duration_ms ?? ctx.thinking_duration_ms ?? ctx.duration ?? ctx.elapsed_ms;
+    if (ms != null) parts.push(`${ms}ms`);
+  }
+
+  if (event.hook_event === 'stop' && event.session_duration_sec != null) {
+    parts.push(`${Math.round(event.session_duration_sec)}s`);
+  }
+
+  return parts.join('  ');
+}
+
 const MAX_EVENT_FEED = 100;
 
 const STATE_HOOKS = new Set([
@@ -57,6 +108,15 @@ function computeEventFeed(events) {
   return events.slice(-MAX_EVENT_FEED).map((e) => ({
     id: e.id,
     hook_event: e.hook_event,
+    time: fmtTimestamp(e.timestamp),
+    timestamp: e.timestamp,
+    model: e.model ?? null,
+    conversation_id: e.conversation_id ?? null,
+    generation_id: e.generation_id ?? null,
+    policy_verdict: e.policy_verdict ?? 'ALLOWED',
+    verdict: e.policy_verdict === 'DENIED' ? 'DENIED' : null,
+    detail: extractEventDetail(e),
+    // keep text for backward compat (AI prompt path uses it)
     text: describeEvent(e),
   }));
 }
