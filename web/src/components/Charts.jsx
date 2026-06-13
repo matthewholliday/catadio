@@ -675,7 +675,7 @@ export function Events({ events = [] }) {
   }
 
   const typeColCh = expanded ? '26ch' : dense ? '20ch' : '24ch';
-  const modelColCh = expanded ? '22ch' : dense ? '16ch' : '20ch';
+  const modelColCh = expanded ? '30ch' : dense ? '22ch' : '26ch';
   const gridCols = `8ch 2ch ${typeColCh} 5ch ${modelColCh} 1fr`;
 
   return (
