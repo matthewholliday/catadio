@@ -1,17 +1,30 @@
 const MAX_EVENTS = 5000;
-const MAX_ALERTS = 100;
+export const DEFAULT_COMMENTARY_INTERVAL_SEC = 120;
 
-/** @type {Map<string, { events: import('./metrics.js').TelemetryEvent[], alerts: import('./metrics.js').SecurityAlert[], sessionStarts: Map<string, number>, lastSeen: number }>} */
+/** @type {Map<string, { events: import('./metrics.js').TelemetryEvent[], sessionStarts: Map<string, number>, lastSeen: number, commentary: import('./commentary.js').CommentaryState, commentaryIntervalSec: number, lastCommentaryAt: number, commentaryInFlight: boolean }>} */
 const stores = new Map();
+
+function defaultCommentary(intervalSec = DEFAULT_COMMENTARY_INTERVAL_SEC) {
+  return {
+    text: null,
+    generatedAt: null,
+    eventCount: 0,
+    intervalSec,
+    status: 'idle',
+  };
+}
 
 function getOrCreate(projectId) {
   const id = projectId || 'default';
   if (!stores.has(id)) {
     stores.set(id, {
       events: [],
-      alerts: [],
       sessionStarts: new Map(),
       lastSeen: Date.now() / 1000,
+      commentary: defaultCommentary(),
+      commentaryIntervalSec: DEFAULT_COMMENTARY_INTERVAL_SEC,
+      lastCommentaryAt: 0,
+      commentaryInFlight: false,
     });
   }
   return stores.get(id);
@@ -38,7 +51,6 @@ export function ingestEvent(payload, projectId = 'default') {
 
   store.lastSeen = event.timestamp;
   trackSession(store, event);
-  maybeRecordAlert(store, event);
 
   return event;
 }
@@ -59,76 +71,72 @@ function trackSession(store, event) {
   }
 }
 
-function maybeRecordAlert(store, event) {
-  if (event.policy_verdict === 'DENIED') {
-    pushAlert(store, {
-      type: 'policy_block',
-      message: describeBlock(event),
-      timestamp: event.timestamp,
-      severity: 'high',
-    });
-    return;
-  }
-
-  if (event.hook_event === 'afterFileEdit') {
-    const edits = event.context_details?.edits ?? event.context_details?.files ?? [];
-    const text = JSON.stringify(edits).toLowerCase();
-    if (/aws_secret|api_key|password\s*=|sk-[a-z0-9]{20,}/i.test(text)) {
-      pushAlert(store, {
-        type: 'secret_intercept',
-        message: 'Potential secret detected in file edit',
-        timestamp: event.timestamp,
-        severity: 'critical',
-      });
-    }
-  }
-
-  if (event.hook_event === 'beforeShellExecution') {
-    const cmd = event.context_details?.command ?? event.context_details?.text ?? '';
-    if (/curl.*\|.*sh|typosquat|malware/i.test(cmd)) {
-      pushAlert(store, {
-        type: 'vulnerability',
-        message: `Suspicious shell pattern: ${cmd.slice(0, 80)}`,
-        timestamp: event.timestamp,
-        severity: 'medium',
-      });
-    }
-  }
-}
-
-function describeBlock(event) {
-  if (event.hook_event === 'beforeShellExecution') {
-    const cmd = event.context_details?.command ?? event.context_details?.text ?? 'unknown command';
-    return `Blocked shell command: ${cmd.slice(0, 120)}`;
-  }
-  if (event.hook_event === 'beforeMCPExecution') {
-    const server = event.context_details?.metadata?.server ?? event.context_details?.server ?? 'unknown';
-    return `Blocked MCP call to ${server}`;
-  }
-  return `Policy denied ${event.hook_event}`;
-}
-
-function pushAlert(store, alert) {
-  store.alerts.unshift(alert);
-  if (store.alerts.length > MAX_ALERTS) {
-    store.alerts.pop();
-  }
-}
-
 export function getEvents(projectId = 'default') {
   return getOrCreate(projectId).events;
 }
 
-export function getAlerts(projectId = 'default') {
-  return getOrCreate(projectId).alerts;
+export function getEventsInWindow(projectId, windowSec) {
+  const now = Date.now() / 1000;
+  const start = now - windowSec;
+  return getEvents(projectId).filter((e) => e.timestamp >= start);
+}
+
+export function getCommentary(projectId = 'default') {
+  const store = getOrCreate(projectId);
+  const now = Date.now() / 1000;
+  const intervalSec = store.commentaryIntervalSec;
+  const lastAt = store.lastCommentaryAt;
+  const nextCommentaryAt = lastAt > 0 ? lastAt + intervalSec : now + intervalSec;
+
+  return {
+    ...store.commentary,
+    intervalSec,
+    nextCommentaryAt,
+  };
+}
+
+export function setCommentary(projectId, commentary) {
+  const store = getOrCreate(projectId);
+  store.commentary = {
+    ...commentary,
+    intervalSec: store.commentaryIntervalSec,
+  };
+}
+
+export function getCommentaryIntervalSec(projectId = 'default') {
+  return getOrCreate(projectId).commentaryIntervalSec;
+}
+
+export function setCommentaryIntervalSec(projectId, intervalSec) {
+  const store = getOrCreate(projectId);
+  store.commentaryIntervalSec = intervalSec;
+  store.commentary = { ...store.commentary, intervalSec };
+}
+
+export function getLastCommentaryAt(projectId = 'default') {
+  return getOrCreate(projectId).lastCommentaryAt;
+}
+
+export function setLastCommentaryAt(projectId, timestamp) {
+  getOrCreate(projectId).lastCommentaryAt = timestamp;
+}
+
+export function isCommentaryInFlight(projectId = 'default') {
+  return getOrCreate(projectId).commentaryInFlight;
+}
+
+export function setCommentaryInFlight(projectId, inFlight) {
+  getOrCreate(projectId).commentaryInFlight = inFlight;
 }
 
 export function clearProject(projectId) {
   const store = stores.get(projectId);
   if (!store) return false;
   store.events.length = 0;
-  store.alerts.length = 0;
   store.sessionStarts.clear();
+  store.commentary = defaultCommentary(store.commentaryIntervalSec);
+  store.lastCommentaryAt = 0;
+  store.commentaryInFlight = false;
   return true;
 }
 
@@ -141,6 +149,5 @@ export function listProjects() {
     id,
     lastSeen: store.lastSeen,
     eventCount: store.events.length,
-    alertCount: store.alerts.length,
   }));
 }

@@ -17,10 +17,10 @@ import { CSS } from '@dnd-kit/utilities';
 import { useCallback, useEffect, useState } from 'react';
 import {
   AgentStateBarChart,
-  AlertTicker,
   BlastRadiusTreemap,
   CodeChurnGauge,
   CodeChurnLine,
+  Commentary,
   HumanInterventions,
   McpBarChart,
   Panel,
@@ -32,6 +32,7 @@ import {
   ThinkTimeLine,
   DensityProvider,
   DensityToggle,
+  ExpandedProvider,
 } from './components/Charts.jsx';
 import { ProjectBar } from './components/ProjectBar.jsx';
 import { useMetrics } from './useMetrics.js';
@@ -54,7 +55,17 @@ const DEFAULT_PANEL_ORDER = [
 const PANEL_ORDER_KEY = 'panel-order';
 const HIGH_DENSITY_KEY = 'high-density';
 const TREND_WINDOW_KEY = 'trend-window-minutes';
+const COMMENTARY_INTERVAL_KEY = 'commentary-interval-sec';
+const COMMENTARY_TICKER_KEY = 'commentary-ticker-tape';
+const COMMENTARY_TICKER_SPEED_KEY = 'commentary-ticker-speed';
 const DEFAULT_TREND_WINDOW_MIN = 0.5;
+const DEFAULT_COMMENTARY_INTERVAL_SEC = 120;
+
+const TICKER_SPEED_OPTIONS = [
+  { id: 'slow', label: 'Slow' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'fast', label: 'Fast' },
+];
 
 const METRIC_TOOLTIPS = {
   'agent-state':
@@ -81,8 +92,8 @@ const METRIC_TOOLTIPS = {
     'Which directories saw the most file edits from afterFileEdit, grouped by path. Surfaces anomalies such as a UI task suddenly touching database migrations.',
   'mcp-usage':
     'Frequency of each MCP server or tool invoked via afterMCPExecution. Shows whether the agent relies on GitHub, Slack, Figma, or other external integrations.',
-  'security-alerts':
-    'Rolling feed of critical security interceptions: blocked shell commands, denied MCP calls, and detected secret or vulnerability patterns from beforeShellExecution, beforeMCPExecution, and afterFileEdit guardrails.',
+  'commentary':
+    'AI-generated summary of recent agent telemetry, refreshed on a configurable interval (default 120 seconds). Uses the Anthropic API to describe thinking, edits, shell commands, MCP calls, and session activity from hook events.',
 };
 
 function readHighDensity() {
@@ -117,6 +128,61 @@ function readTrendWindowMin() {
 function saveTrendWindowMin(value) {
   try {
     localStorage.setItem(TREND_WINDOW_KEY, String(value));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function readCommentaryIntervalSec() {
+  try {
+    const stored = localStorage.getItem(COMMENTARY_INTERVAL_KEY);
+    if (stored != null) {
+      const parsed = Number(stored);
+      if (Number.isFinite(parsed) && parsed >= 30) return Math.min(Math.round(parsed), 600);
+    }
+  } catch {
+    // Ignore storage errors
+  }
+  return DEFAULT_COMMENTARY_INTERVAL_SEC;
+}
+
+function saveCommentaryIntervalSec(value) {
+  try {
+    localStorage.setItem(COMMENTARY_INTERVAL_KEY, String(value));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function readTickerTape() {
+  try {
+    return localStorage.getItem(COMMENTARY_TICKER_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function saveTickerTape(value) {
+  try {
+    localStorage.setItem(COMMENTARY_TICKER_KEY, String(value));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function readTickerSpeed() {
+  try {
+    const stored = localStorage.getItem(COMMENTARY_TICKER_SPEED_KEY);
+    if (stored === 'slow' || stored === 'medium' || stored === 'fast') return stored;
+  } catch {
+    // Ignore storage errors
+  }
+  return 'medium';
+}
+
+function saveTickerSpeed(value) {
+  try {
+    localStorage.setItem(COMMENTARY_TICKER_SPEED_KEY, value);
   } catch {
     // Ignore storage errors
   }
@@ -174,6 +240,52 @@ function SortablePanel({ id, children }) {
   );
 }
 
+function ExpandedPanelModal({ title, subtitle, tooltip, onClose, children }) {
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="expanded-panel-title"
+        className="flex h-[min(92vh,calc(100vh-2rem))] w-[60vw] flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-6 py-4">
+          <div className="min-w-0">
+            <h2 id="expanded-panel-title" className="text-lg font-semibold text-white">
+              {title}
+            </h2>
+            {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
+            {tooltip && <p className="mt-2 text-xs leading-relaxed text-slate-400">{tooltip}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close expanded panel"
+            className="shrink-0 rounded p-1 text-slate-500 hover:bg-white/5 hover:text-slate-300"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto p-6">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 function SettingsModal({
   onClose,
   onResetLayout,
@@ -181,6 +293,12 @@ function SettingsModal({
   onHighDensityChange,
   trendWindowMin,
   onTrendWindowMinChange,
+  commentaryIntervalSec,
+  onCommentaryIntervalSecChange,
+  tickerTape,
+  onTickerTapeChange,
+  tickerSpeed,
+  onTickerSpeedChange,
 }) {
   useEffect(() => {
     const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -194,10 +312,10 @@ function SettingsModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-xl border border-border bg-surface p-6 shadow-2xl"
+        className="flex max-h-[min(520px,85vh)] w-full max-w-sm flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-5 flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-base font-semibold text-white">Settings</h2>
           <button
             type="button"
@@ -211,7 +329,8 @@ function SettingsModal({
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+          <div className="space-y-4">
           <div className="rounded-lg border border-border p-4">
             <h3 className="mb-1 text-sm font-medium text-slate-200">Display</h3>
             <p className="mb-3 text-xs text-slate-500">
@@ -247,6 +366,58 @@ function SettingsModal({
           </div>
 
           <div className="rounded-lg border border-border p-4">
+            <h3 className="mb-1 text-sm font-medium text-slate-200">Commentary</h3>
+            <p className="mb-3 text-xs text-slate-500">
+              How often the dashboard requests a new AI summary of recent agent activity, and how
+              far back each summary looks.
+            </p>
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <span className="shrink-0">Every</span>
+              <input
+                type="number"
+                min="30"
+                max="600"
+                step="1"
+                value={commentaryIntervalSec}
+                onChange={(e) => {
+                  const parsed = Number(e.target.value);
+                  if (Number.isFinite(parsed) && parsed >= 30) {
+                    onCommentaryIntervalSecChange(Math.min(Math.round(parsed), 600));
+                  }
+                }}
+                className="w-24 rounded-md border border-border bg-panel px-2 py-1 text-sm text-slate-100 focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+              />
+              <span className="text-slate-500">seconds</span>
+            </label>
+            <div className="mt-4 space-y-3 border-t border-border pt-4">
+              <label className="flex cursor-pointer select-none items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={tickerTape}
+                  onChange={(e) => onTickerTapeChange(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-border bg-panel text-accent focus:ring-accent/50"
+                />
+                Ticker tape
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <span className="shrink-0 text-slate-400">Speed</span>
+                <select
+                  value={tickerSpeed}
+                  disabled={!tickerTape}
+                  onChange={(e) => onTickerSpeedChange(e.target.value)}
+                  className="rounded-md border border-border bg-panel px-2 py-1 text-sm text-slate-100 disabled:cursor-not-allowed disabled:opacity-40 focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                >
+                  {TICKER_SPEED_OPTIONS.map(({ id, label }) => (
+                    <option key={id} value={id}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border p-4">
             <h3 className="mb-1 text-sm font-medium text-slate-200">Layout</h3>
             <p className="mb-3 text-xs text-slate-500">
               Resets the panel order to the original default arrangement.
@@ -259,6 +430,7 @@ function SettingsModal({
               Reset layout
             </button>
           </div>
+          </div>
         </div>
       </div>
     </div>
@@ -269,12 +441,16 @@ export default function App() {
   const [project, setProject] = useState(null);
   const [panelOrder, setPanelOrder] = useState(readPanelOrder);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [expandedPanelId, setExpandedPanelId] = useState(null);
   const [highDensity, setHighDensity] = useState(readHighDensity);
   const [trendWindowMin, setTrendWindowMin] = useState(readTrendWindowMin);
+  const [commentaryIntervalSec, setCommentaryIntervalSec] = useState(readCommentaryIntervalSec);
+  const [tickerTape, setTickerTape] = useState(readTickerTape);
+  const [tickerSpeed, setTickerSpeed] = useState(readTickerSpeed);
 
   const isElectron = typeof window.dashboard !== 'undefined';
   const projectId = isElectron ? (project?.id ?? null) : 'default';
-  const { metrics, connected } = useMetrics(projectId, trendWindowMin);
+  const { metrics, connected } = useMetrics(projectId, trendWindowMin, commentaryIntervalSec);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -329,130 +505,134 @@ export default function App() {
     saveTrendWindowMin(value);
   }, []);
 
+  const handleCommentaryIntervalSecChange = useCallback((value) => {
+    setCommentaryIntervalSec(value);
+    saveCommentaryIntervalSec(value);
+  }, []);
+
+  const handleTickerTapeChange = useCallback((value) => {
+    setTickerTape(value);
+    saveTickerTape(value);
+  }, []);
+
+  const handleTickerSpeedChange = useCallback((value) => {
+    setTickerSpeed(value);
+    saveTickerSpeed(value);
+  }, []);
+
+  const handleExpandPanel = useCallback((id) => {
+    setExpandedPanelId(id);
+  }, []);
+
+  const handleCloseExpandedPanel = useCallback(() => {
+    setExpandedPanelId(null);
+  }, []);
+
   const showEmptyState = isElectron && !project;
 
-  const panelContent = {
-    'agent-state': (dragHandleProps) => (
-      <Panel
-        title="Agent State Distribution"
-        subtitle="Metric #1 · Horizontal bar chart"
-        tooltip={METRIC_TOOLTIPS['agent-state']}
-        dragHandleProps={dragHandleProps}
-      >
-        <AgentStateBarChart data={metrics.agentStateDistribution} />
-      </Panel>
-    ),
-    'security-block': (dragHandleProps) => (
-      <Panel
-        title="Security Block Rate"
-        subtitle="Metric #2 · Policy gauge"
-        tooltip={METRIC_TOOLTIPS['security-block']}
-        dragHandleProps={dragHandleProps}
-      >
-        <SecurityGauge {...metrics.securityBlockRate} />
-      </Panel>
-    ),
-    'human-loop': (dragHandleProps) => (
-      <Panel
-        title="Human-in-the-Loop"
-        subtitle="Metric #10 · Manual approval friction"
-        tooltip={METRIC_TOOLTIPS['human-loop']}
-        dragHandleProps={dragHandleProps}
-      >
-        <HumanInterventions data={metrics.humanInterventions} />
-      </Panel>
-    ),
-    'think-time': (dragHandleProps) => (
-      <Panel
-        title="Average Think Time"
-        subtitle="Metric #3 · Reasoning latency"
-        tooltip={METRIC_TOOLTIPS['think-time']}
-        dragHandleProps={dragHandleProps}
-      >
-        <ThinkTimeLine data={metrics.thinkTimeSeries} />
-      </Panel>
-    ),
-    'think-time-gauge': (dragHandleProps) => (
-      <Panel
-        title="Think Time Trend"
-        subtitle="Metric #3 · Reasoning latency trend"
-        tooltip={METRIC_TOOLTIPS['think-time-gauge']}
-        dragHandleProps={dragHandleProps}
-      >
-        <ThinkTimeGauge {...metrics.thinkTimeSummary} />
-      </Panel>
-    ),
-    'shell-outcome': (dragHandleProps) => (
-      <Panel
-        title="Shell Success vs Failure"
-        subtitle="Metric #4 · Exit code time series"
-        tooltip={METRIC_TOOLTIPS['shell-outcome']}
-        dragHandleProps={dragHandleProps}
-      >
-        <ShellOutcomeArea data={metrics.shellOutcomeSeries} />
-      </Panel>
-    ),
-    'shell-outcome-gauge': (dragHandleProps) => (
-      <Panel
-        title="Success vs Failure Trend"
-        subtitle="Metric #4 · Shell exit code trend"
-        tooltip={METRIC_TOOLTIPS['shell-outcome-gauge']}
-        dragHandleProps={dragHandleProps}
-      >
-        <ShellOutcomeGauge {...metrics.shellOutcomeSummary} />
-      </Panel>
-    ),
-    'code-churn': (dragHandleProps) => (
-      <Panel
-        title="Code Churn Volume"
-        subtitle="Metric #8 · Lines added/removed"
-        tooltip={METRIC_TOOLTIPS['code-churn']}
-        dragHandleProps={dragHandleProps}
-      >
-        <CodeChurnLine data={metrics.codeChurnSeries} />
-      </Panel>
-    ),
-    'code-churn-gauge': (dragHandleProps) => (
-      <Panel
-        title="Code Churn Trend"
-        subtitle="Metric #8 · Edit velocity trend"
-        tooltip={METRIC_TOOLTIPS['code-churn-gauge']}
-        dragHandleProps={dragHandleProps}
-      >
-        <CodeChurnGauge {...metrics.codeChurnSummary} />
-      </Panel>
-    ),
-    'session-scatter': (dragHandleProps) => (
-      <Panel
-        title="Autonomous Loop Duration"
-        subtitle="Metric #9 · Session scatter plot"
-        tooltip={METRIC_TOOLTIPS['session-scatter']}
-        dragHandleProps={dragHandleProps}
-      >
-        <SessionScatter data={metrics.sessionScatter} />
-      </Panel>
-    ),
-    'blast-radius': (dragHandleProps) => (
-      <Panel
-        title="Project Blast Radius"
-        subtitle="Metric #5 · Directory heatmap"
-        tooltip={METRIC_TOOLTIPS['blast-radius']}
-        dragHandleProps={dragHandleProps}
-      >
-        <BlastRadiusTreemap data={metrics.blastRadius} />
-      </Panel>
-    ),
-    'mcp-usage': (dragHandleProps) => (
-      <Panel
-        title="MCP Usage Breakdown"
-        subtitle="Metric #6 · Tool call frequency"
-        tooltip={METRIC_TOOLTIPS['mcp-usage']}
-        dragHandleProps={dragHandleProps}
-      >
-        <McpBarChart data={metrics.mcpUsage} />
-      </Panel>
-    ),
+  const panels = {
+    commentary: {
+      title: 'Commentary',
+      subtitle: 'AI summary of recent agent activity',
+      tooltip: METRIC_TOOLTIPS.commentary,
+      render: () => (
+        <Commentary commentary={metrics.commentary} tickerTape={tickerTape} tickerSpeed={tickerSpeed} />
+      ),
+    },
+    'agent-state': {
+      title: 'Agent State Distribution',
+      subtitle: 'Metric #1 · Horizontal bar chart',
+      tooltip: METRIC_TOOLTIPS['agent-state'],
+      render: () => <AgentStateBarChart data={metrics.agentStateDistribution} />,
+    },
+    'security-block': {
+      title: 'Security Block Rate',
+      subtitle: 'Metric #2 · Policy gauge',
+      tooltip: METRIC_TOOLTIPS['security-block'],
+      render: () => <SecurityGauge {...metrics.securityBlockRate} />,
+    },
+    'human-loop': {
+      title: 'Human-in-the-Loop',
+      subtitle: 'Metric #10 · Manual approval friction',
+      tooltip: METRIC_TOOLTIPS['human-loop'],
+      render: () => <HumanInterventions data={metrics.humanInterventions} />,
+    },
+    'think-time': {
+      title: 'Average Think Time',
+      subtitle: 'Metric #3 · Reasoning latency',
+      tooltip: METRIC_TOOLTIPS['think-time'],
+      render: () => <ThinkTimeLine data={metrics.thinkTimeSeries} />,
+    },
+    'think-time-gauge': {
+      title: 'Think Time Trend',
+      subtitle: 'Metric #3 · Reasoning latency trend',
+      tooltip: METRIC_TOOLTIPS['think-time-gauge'],
+      render: () => <ThinkTimeGauge {...metrics.thinkTimeSummary} />,
+    },
+    'shell-outcome': {
+      title: 'Shell Success vs Failure',
+      subtitle: 'Metric #4 · Exit code time series',
+      tooltip: METRIC_TOOLTIPS['shell-outcome'],
+      render: () => <ShellOutcomeArea data={metrics.shellOutcomeSeries} />,
+    },
+    'shell-outcome-gauge': {
+      title: 'Success vs Failure Trend',
+      subtitle: 'Metric #4 · Shell exit code trend',
+      tooltip: METRIC_TOOLTIPS['shell-outcome-gauge'],
+      render: () => <ShellOutcomeGauge {...metrics.shellOutcomeSummary} />,
+    },
+    'code-churn': {
+      title: 'Code Churn Volume',
+      subtitle: 'Metric #8 · Lines added/removed',
+      tooltip: METRIC_TOOLTIPS['code-churn'],
+      render: () => <CodeChurnLine data={metrics.codeChurnSeries} />,
+    },
+    'code-churn-gauge': {
+      title: 'Code Churn Trend',
+      subtitle: 'Metric #8 · Edit velocity trend',
+      tooltip: METRIC_TOOLTIPS['code-churn-gauge'],
+      render: () => <CodeChurnGauge {...metrics.codeChurnSummary} />,
+    },
+    'session-scatter': {
+      title: 'Autonomous Loop Duration',
+      subtitle: 'Metric #9 · Session scatter plot',
+      tooltip: METRIC_TOOLTIPS['session-scatter'],
+      render: () => <SessionScatter data={metrics.sessionScatter} />,
+    },
+    'blast-radius': {
+      title: 'Project Blast Radius',
+      subtitle: 'Metric #5 · Directory heatmap',
+      tooltip: METRIC_TOOLTIPS['blast-radius'],
+      render: () => <BlastRadiusTreemap data={metrics.blastRadius} />,
+    },
+    'mcp-usage': {
+      title: 'MCP Usage Breakdown',
+      subtitle: 'Metric #6 · Tool call frequency',
+      tooltip: METRIC_TOOLTIPS['mcp-usage'],
+      render: () => <McpBarChart data={metrics.mcpUsage} />,
+    },
   };
+
+  const panelContent = Object.fromEntries(
+    Object.entries(panels)
+      .filter(([id]) => id !== 'commentary')
+      .map(([id, panel]) => [
+        id,
+        (dragHandleProps) => (
+          <Panel
+            title={panel.title}
+            subtitle={panel.subtitle}
+            tooltip={panel.tooltip}
+            dragHandleProps={dragHandleProps}
+            onExpand={() => handleExpandPanel(id)}
+          >
+            {panel.render()}
+          </Panel>
+        ),
+      ]),
+  );
+
+  const expandedPanel = expandedPanelId ? panels[expandedPanelId] : null;
 
   return (
     <DensityProvider dense={highDensity}>
@@ -524,12 +704,13 @@ export default function App() {
         ) : (
           <>
             <Panel
-              title="Security Interceptions"
-              subtitle="Metric #7 · Real-time alert ticker"
-              tooltip={METRIC_TOOLTIPS['security-alerts']}
+              title={panels.commentary.title}
+              subtitle={panels.commentary.subtitle}
+              tooltip={panels.commentary.tooltip}
               className={highDensity ? 'mb-1.5' : 'mb-3'}
+              onExpand={() => handleExpandPanel('commentary')}
             >
-              <AlertTicker alerts={metrics.securityAlerts} />
+              {panels.commentary.render()}
             </Panel>
 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -553,6 +734,19 @@ export default function App() {
         )}
       </main>
 
+      {expandedPanel && (
+        <ExpandedPanelModal
+          title={expandedPanel.title}
+          subtitle={expandedPanel.subtitle}
+          tooltip={expandedPanel.tooltip}
+          onClose={handleCloseExpandedPanel}
+        >
+          <ExpandedProvider expanded>
+            <DensityProvider dense={false}>{expandedPanel.render()}</DensityProvider>
+          </ExpandedProvider>
+        </ExpandedPanelModal>
+      )}
+
       {settingsOpen && (
         <SettingsModal
           onClose={() => setSettingsOpen(false)}
@@ -561,6 +755,12 @@ export default function App() {
           onHighDensityChange={handleHighDensityChange}
           trendWindowMin={trendWindowMin}
           onTrendWindowMinChange={handleTrendWindowMinChange}
+          commentaryIntervalSec={commentaryIntervalSec}
+          onCommentaryIntervalSecChange={handleCommentaryIntervalSecChange}
+          tickerTape={tickerTape}
+          onTickerTapeChange={handleTickerTapeChange}
+          tickerSpeed={tickerSpeed}
+          onTickerSpeedChange={handleTickerSpeedChange}
         />
       )}
       </div>

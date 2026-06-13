@@ -1,20 +1,47 @@
+import './env.js';
 import cors from 'cors';
 import express from 'express';
 import { createServer } from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
+import { generateCommentary } from './commentary.js';
 import { computeMetrics, DEFAULT_TREND_WINDOW_MIN } from './metrics.js';
-import { clearAll, clearProject, ingestEvent, listProjects } from './store.js';
+import {
+  DEFAULT_COMMENTARY_INTERVAL_SEC,
+  clearAll,
+  clearProject,
+  getLastCommentaryAt,
+  ingestEvent,
+  isCommentaryInFlight,
+  listProjects,
+  setCommentaryInFlight,
+  setCommentaryIntervalSec,
+  setLastCommentaryAt,
+} from './store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT ?? 3847;
+const COMMENTARY_TICK_MS = 5000;
+const MIN_COMMENTARY_INTERVAL_SEC = 30;
+const MAX_COMMENTARY_INTERVAL_SEC = 600;
 
 /** @type {import('http').Server | null} */
 let httpServer = null;
 
-/** @type {Set<import('ws').WebSocket & { _projectId?: string }>} */
+/** @type {ReturnType<typeof setInterval> | null} */
+let commentaryTickTimer = null;
+
+/** @type {Set<import('ws').WebSocket & { _projectId?: string, _trendWindowMin?: number, _commentaryIntervalSec?: number }>} */
 const clients = new Set();
+
+function normalizeCommentaryIntervalSec(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_COMMENTARY_INTERVAL_SEC;
+  }
+  return Math.min(Math.max(Math.round(parsed), MIN_COMMENTARY_INTERVAL_SEC), MAX_COMMENTARY_INTERVAL_SEC);
+}
 
 function broadcastToProject(projectId, type, data) {
   const msg = JSON.stringify({ type, data });
@@ -31,6 +58,78 @@ function pushMetrics(projectId) {
       const data = computeMetrics(projectId, { trendWindowMin: client._trendWindowMin });
       client.send(JSON.stringify({ type: 'metrics', data }));
     }
+  }
+}
+
+async function maybeGenerateCommentary(projectId, { force = false } = {}) {
+  const intervalSec = normalizeCommentaryIntervalSec(
+    [...clients]
+      .filter((c) => c._projectId === projectId && c._commentaryIntervalSec != null)
+      .map((c) => c._commentaryIntervalSec)
+      .at(-1) ?? DEFAULT_COMMENTARY_INTERVAL_SEC,
+  );
+
+  setCommentaryIntervalSec(projectId, intervalSec);
+
+  const now = Date.now() / 1000;
+  const lastAt = getLastCommentaryAt(projectId);
+  if (!force && lastAt > 0 && now - lastAt < intervalSec) {
+    return;
+  }
+  if (isCommentaryInFlight(projectId)) {
+    return;
+  }
+
+  setCommentaryInFlight(projectId, true);
+  pushMetrics(projectId);
+
+  try {
+    await generateCommentary(projectId, intervalSec);
+    setLastCommentaryAt(projectId, Date.now() / 1000);
+  } finally {
+    setCommentaryInFlight(projectId, false);
+    pushMetrics(projectId);
+  }
+}
+
+function runCommentaryTick() {
+  const projectIds = new Set([
+    ...listProjects().map((p) => p.id),
+    ...[...clients].map((c) => c._projectId).filter(Boolean),
+  ]);
+
+  for (const projectId of projectIds) {
+    maybeGenerateCommentary(projectId).catch((err) => {
+      console.error(`Commentary generation failed for ${projectId}:`, err);
+    });
+  }
+}
+
+function startCommentaryScheduler() {
+  if (commentaryTickTimer) return;
+  commentaryTickTimer = setInterval(runCommentaryTick, COMMENTARY_TICK_MS);
+}
+
+function stopCommentaryScheduler() {
+  if (commentaryTickTimer) {
+    clearInterval(commentaryTickTimer);
+    commentaryTickTimer = null;
+  }
+}
+
+function applyClientConfig(ws) {
+  const projectId = ws._projectId ?? 'default';
+  let changed = false;
+
+  if (ws._commentaryIntervalSec != null) {
+    setCommentaryIntervalSec(projectId, normalizeCommentaryIntervalSec(ws._commentaryIntervalSec));
+    changed = true;
+  }
+
+  if (changed) {
+    maybeGenerateCommentary(projectId, { force: true }).catch((err) => {
+      console.error(`Commentary generation failed for ${projectId}:`, err);
+    });
   }
 }
 
@@ -112,17 +211,26 @@ export function startServer(options = {}) {
     const projectId = url.searchParams.get('project') ?? 'default';
     ws._projectId = projectId;
     ws._trendWindowMin = DEFAULT_TREND_WINDOW_MIN;
+    ws._commentaryIntervalSec = DEFAULT_COMMENTARY_INTERVAL_SEC;
     clients.add(ws);
     ws.send(JSON.stringify({
       type: 'metrics',
       data: computeMetrics(projectId, { trendWindowMin: ws._trendWindowMin }),
     }));
 
+    applyClientConfig(ws);
+
     ws.on('message', (raw) => {
       try {
         const msg = JSON.parse(String(raw));
-        if (msg.type === 'config' && msg.trendWindowMin != null) {
-          ws._trendWindowMin = msg.trendWindowMin;
+        if (msg.type === 'config') {
+          if (msg.trendWindowMin != null) {
+            ws._trendWindowMin = msg.trendWindowMin;
+          }
+          if (msg.commentaryIntervalSec != null) {
+            ws._commentaryIntervalSec = normalizeCommentaryIntervalSec(msg.commentaryIntervalSec);
+          }
+          applyClientConfig(ws);
           ws.send(JSON.stringify({
             type: 'metrics',
             data: computeMetrics(projectId, { trendWindowMin: ws._trendWindowMin }),
@@ -135,6 +243,8 @@ export function startServer(options = {}) {
 
     ws.on('close', () => clients.delete(ws));
   });
+
+  startCommentaryScheduler();
 
   return new Promise((resolve, reject) => {
     httpServer.once('error', (err) => {
@@ -150,6 +260,7 @@ export function startServer(options = {}) {
 }
 
 export function stopServer() {
+  stopCommentaryScheduler();
   return new Promise((resolve, reject) => {
     if (!httpServer) {
       resolve();

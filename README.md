@@ -14,7 +14,7 @@ Available as a **web app** (browser) or **Electron desktop app** (open any Curso
 | Shell Success vs Failure | Stacked area | `afterShellExecution` |
 | Project Blast Radius | Directory heatmap | `afterFileEdit` |
 | MCP Usage Breakdown | Horizontal bar | `afterMCPExecution` |
-| Security Interceptions | Alert ticker | Policy blocks + secret heuristics |
+| Commentary | AI summary panel | All hooks (Anthropic API) |
 | Code Churn Volume | Line graph | `afterFileEdit` |
 | Autonomous Loop Duration | Scatter plot | `sessionStart` → `stop` |
 | Human-in-the-Loop | Counter + sparkline | `beforeShellExecution` with `permission: ask` |
@@ -67,6 +67,21 @@ Override the endpoint:
 ```bash
 export DASHBOARD_URL=http://localhost:3847/api/v1/telemetry
 ```
+
+Commentary summaries require an Anthropic API key on the server. Set it in a `.env` file at the project root:
+
+```bash
+# .env
+ANTHROPIC_API_KEY=your-key-here
+```
+
+Or export it in your shell before starting the server:
+
+```bash
+export ANTHROPIC_API_KEY=your-key-here
+```
+
+The summary interval is configured in the dashboard Settings UI (default 120 seconds).
 
 The telemetry script fails silently on network errors so hook latency never blocks your agent. Shell guardrails block `rm -rf /` and similar patterns with exit code `2`.
 

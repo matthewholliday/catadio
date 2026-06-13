@@ -1,4 +1,4 @@
-import { getAlerts, getEvents } from './store.js';
+import { getCommentary, getEvents } from './store.js';
 
 const STATE_HOOKS = new Set([
   'afterAgentThought',
@@ -36,7 +36,7 @@ export function computeMetrics(projectId = 'default', options = {}) {
     shellOutcomeSummary: computeShellOutcomeSummary(recent, now, trendWindowMin),
     blastRadius: computeBlastRadius(recent),
     mcpUsage: computeMcpUsage(recent),
-    securityAlerts: getAlerts(projectId).slice(0, 20),
+    commentary: getCommentary(projectId),
     codeChurnSeries,
     codeChurnSummary: computeCodeChurnSummary(recent, now, trendWindowMin),
     sessionScatter: computeSessionScatter(events),

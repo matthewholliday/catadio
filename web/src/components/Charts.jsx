@@ -1,4 +1,4 @@
-import { createContext, useContext, useId, useState } from 'react';
+import { createContext, useContext, useEffect, useId, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -21,13 +21,30 @@ import { formatTime } from '../useMetrics.js';
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ec4899', '#06b6d4', '#a78bfa'];
 
 const DensityContext = createContext(false);
+const ExpandedContext = createContext(false);
 
 export function DensityProvider({ dense, children }) {
   return <DensityContext.Provider value={dense}>{children}</DensityContext.Provider>;
 }
 
+export function ExpandedProvider({ expanded, children }) {
+  return <ExpandedContext.Provider value={expanded}>{children}</ExpandedContext.Provider>;
+}
+
 function useDensity() {
   return useContext(DensityContext);
+}
+
+function useExpanded() {
+  return useContext(ExpandedContext);
+}
+
+function useLayoutMode() {
+  const dense = useDensity();
+  const expanded = useExpanded();
+  if (expanded) return 'expanded';
+  if (dense) return 'dense';
+  return 'normal';
 }
 
 function chartTick(dense) {
@@ -49,10 +66,12 @@ export function DensityToggle({ checked, onChange, className = '' }) {
 }
 
 function ChartArea({ children, className = '' }) {
-  const dense = useDensity();
+  const mode = useLayoutMode();
+  const height =
+    mode === 'expanded' ? 'h-[calc(100vh-14rem)]' : mode === 'dense' ? 'h-[110px]' : 'h-[220px]';
   return (
-    <div className={`${dense ? 'h-[110px]' : 'h-[220px]'} flex-1 ${className}`}>
-      <ResponsiveContainer width="100%" height="100%" key={dense ? 'dense' : 'normal'}>
+    <div className={`${height} flex-1 ${className}`}>
+      <ResponsiveContainer width="100%" height="100%" key={mode}>
         {children}
       </ResponsiveContainer>
     </div>
@@ -60,12 +79,18 @@ function ChartArea({ children, className = '' }) {
 }
 
 function NoData({ className = '' }) {
-  const dense = useDensity();
+  const mode = useLayoutMode();
+  const minHeight =
+    mode === 'expanded' ? 'min-h-[calc(100vh-14rem)]' : mode === 'dense' ? 'min-h-[110px]' : 'min-h-[220px]';
   return (
-    <div
-      className={`flex flex-1 items-center justify-center ${dense ? 'min-h-[110px]' : 'min-h-[220px]'} ${className}`}
-    >
-      <p className={`text-slate-500 ${dense ? 'text-xs' : 'text-sm'}`}>No Data</p>
+    <div className={`flex flex-1 items-center justify-center ${minHeight} ${className}`}>
+      <p
+        className={`text-slate-500 ${
+          mode === 'expanded' ? 'text-base' : mode === 'dense' ? 'text-xs' : 'text-sm'
+        }`}
+      >
+        No Data
+      </p>
     </div>
   );
 }
@@ -127,6 +152,14 @@ function MetricTooltip({ text }) {
   );
 }
 
+function ExpandIcon({ className = 'h-3.5 w-3.5' }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" className={className}>
+      <path d="M3.75 3.75a.75.75 0 011.06 0L8.25 7.19V5.5a.75.75 0 011.5 0v3.75a.75.75 0 01-.75.75H5.25a.75.75 0 010-1.5h1.69L3.75 4.81a.75.75 0 010-1.06zM11.75 5.5a.75.75 0 011.5 0v3.75a.75.75 0 01-.75.75H9.31l3.44 3.44a.75.75 0 11-1.06 1.06L8.25 10.31v1.69a.75.75 0 01-1.5 0V8.25a.75.75 0 01.75-.75h3.75zM16.25 11.75a.75.75 0 00-1.06 0l-3.44 3.44v-1.69a.75.75 0 00-1.5 0v3.75a.75.75 0 00.75.75h3.75a.75.75 0 000-1.5h-1.69l3.44-3.44a.75.75 0 000-1.06zM5.5 11.75a.75.75 0 00-.75.75v3.75a.75.75 0 00.75.75h3.75a.75.75 0 000-1.5H7.19l3.44-3.44a.75.75 0 00-1.06-1.06L5.5 14.69v-1.69a.75.75 0 00-.75-.75z" />
+    </svg>
+  );
+}
+
 export function Panel({
   title,
   subtitle,
@@ -135,6 +168,7 @@ export function Panel({
   className = '',
   defaultExpanded = true,
   dragHandleProps = null,
+  onExpand = null,
 }) {
   const dense = useDensity();
   const contentId = useId();
@@ -211,6 +245,21 @@ export function Panel({
               </span>
             </button>
             {tooltip && <MetricTooltip text={tooltip} />}
+            {onExpand && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onExpand();
+                }}
+                aria-label={`Expand ${title}`}
+                className={`shrink-0 rounded text-slate-500 transition hover:bg-white/5 hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+                  dense ? 'p-0.5' : 'p-1'
+                }`}
+              >
+                <ExpandIcon className={dense ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -264,7 +313,7 @@ export function AgentStateBarChart({ data }) {
 }
 
 export function SecurityGauge({ rate, blocked, allowed }) {
-  const dense = useDensity();
+  const mode = useLayoutMode();
   if (blocked + allowed === 0) {
     return <NoData />;
   }
@@ -273,12 +322,20 @@ export function SecurityGauge({ rate, blocked, allowed }) {
   return (
     <div
       className={`flex flex-1 flex-col items-center justify-center ${
-        dense ? 'min-h-[110px] py-1' : 'min-h-[220px] py-4'
+        mode === 'expanded'
+          ? 'min-h-[calc(100vh-14rem)] py-8'
+          : mode === 'dense'
+            ? 'min-h-[110px] py-1'
+            : 'min-h-[220px] py-4'
       }`}
     >
       <div
         className={`relative flex items-end justify-center rounded-full border-border ${
-          dense ? 'h-20 w-20 border-4' : 'h-36 w-36 border-8'
+          mode === 'expanded'
+            ? 'h-56 w-56 border-[10px]'
+            : mode === 'dense'
+              ? 'h-20 w-20 border-4'
+              : 'h-36 w-36 border-8'
         }`}
         style={{
           background: `conic-gradient(hsl(${hue} 70% 45%) ${clamped * 3.6}deg, #2a2f3d 0)`,
@@ -286,14 +343,26 @@ export function SecurityGauge({ rate, blocked, allowed }) {
       >
         <div
           className={`absolute flex flex-col items-center justify-center rounded-full bg-surface ${
-            dense ? 'inset-1.5' : 'inset-3'
+            mode === 'expanded' ? 'inset-5' : mode === 'dense' ? 'inset-1.5' : 'inset-3'
           }`}
         >
-          <span className={`font-bold tabular-nums ${dense ? 'text-lg' : 'text-3xl'}`}>{rate}%</span>
-          {!dense && <span className="text-xs text-slate-500">blocked</span>}
+          <span
+            className={`font-bold tabular-nums ${
+              mode === 'expanded' ? 'text-5xl' : mode === 'dense' ? 'text-lg' : 'text-3xl'
+            }`}
+          >
+            {rate}%
+          </span>
+          {mode !== 'dense' && (
+            <span className={`text-slate-500 ${mode === 'expanded' ? 'text-sm' : 'text-xs'}`}>blocked</span>
+          )}
         </div>
       </div>
-      <div className={`flex text-xs ${dense ? 'mt-1 gap-3' : 'mt-4 gap-6'}`}>
+      <div
+        className={`flex ${
+          mode === 'expanded' ? 'mt-6 gap-8 text-sm' : mode === 'dense' ? 'mt-1 gap-3 text-xs' : 'mt-4 gap-6 text-xs'
+        }`}
+      >
         <span className="text-success">● {allowed} allowed</span>
         <span className="text-danger">● {blocked} blocked</span>
       </div>
@@ -307,8 +376,9 @@ function formatTrendWindowLabel(windowMinutes = 0.5) {
   return `last ${value} min`;
 }
 
-function TrendArrow({ direction, positive = 'up', dense = false }) {
-  const size = dense ? 'text-xl' : 'text-4xl';
+function TrendArrow({ direction, positive = 'up', mode = 'normal' }) {
+  const size =
+    mode === 'expanded' ? 'text-6xl' : mode === 'dense' ? 'text-xl' : 'text-4xl';
   if (direction === 'flat') {
     return <span className={`${size} leading-none text-slate-500`}>→</span>;
   }
@@ -321,22 +391,42 @@ function TrendArrow({ direction, positive = 'up', dense = false }) {
 }
 
 function TrendStat({ value, unit, direction, positive = 'up', footer }) {
-  const dense = useDensity();
+  const mode = useLayoutMode();
   return (
     <div
       className={`flex flex-1 flex-col items-center justify-center ${
-        dense ? 'min-h-[110px] gap-0.5 py-1' : 'min-h-[220px] gap-2 py-4'
+        mode === 'expanded'
+          ? 'min-h-[calc(100vh-14rem)] gap-4 py-8'
+          : mode === 'dense'
+            ? 'min-h-[110px] gap-0.5 py-1'
+            : 'min-h-[220px] gap-2 py-4'
       }`}
     >
-      <div className={`flex items-center ${dense ? 'gap-2' : 'gap-4'}`}>
-        <span className={`font-bold tabular-nums text-slate-100 ${dense ? 'text-2xl' : 'text-5xl'}`}>
+      <div className={`flex items-center ${mode === 'expanded' ? 'gap-6' : mode === 'dense' ? 'gap-2' : 'gap-4'}`}>
+        <span
+          className={`font-bold tabular-nums text-slate-100 ${
+            mode === 'expanded' ? 'text-7xl' : mode === 'dense' ? 'text-2xl' : 'text-5xl'
+          }`}
+        >
           {value}
         </span>
-        <TrendArrow direction={direction} positive={positive} dense={dense} />
+        <TrendArrow direction={direction} positive={positive} mode={mode} />
       </div>
-      {unit && <span className={`text-slate-500 ${dense ? 'text-[10px]' : 'text-sm'}`}>{unit}</span>}
+      {unit && (
+        <span
+          className={`text-slate-500 ${
+            mode === 'expanded' ? 'text-lg' : mode === 'dense' ? 'text-[10px]' : 'text-sm'
+          }`}
+        >
+          {unit}
+        </span>
+      )}
       {footer && (
-        <div className={`flex flex-wrap justify-center text-xs ${dense ? 'mt-1 gap-2' : 'mt-3 gap-4'}`}>
+        <div
+          className={`flex flex-wrap justify-center ${
+            mode === 'expanded' ? 'mt-4 gap-6 text-base' : mode === 'dense' ? 'mt-1 gap-2 text-xs' : 'mt-3 gap-4 text-xs'
+          }`}
+        >
           {footer}
         </div>
       )}
@@ -445,7 +535,7 @@ export function ShellOutcomeArea({ data }) {
 }
 
 export function BlastRadiusTreemap({ data }) {
-  const dense = useDensity();
+  const mode = useLayoutMode();
   if (!data.length) {
     return <NoData />;
   }
@@ -453,31 +543,51 @@ export function BlastRadiusTreemap({ data }) {
   return (
     <div
       className={`flex min-h-0 flex-1 flex-col overflow-y-auto ${
-        dense ? 'min-h-[110px] max-h-[140px]' : 'min-h-[220px]'
+        mode === 'expanded'
+          ? 'min-h-[calc(100vh-14rem)]'
+          : mode === 'dense'
+            ? 'min-h-[110px] max-h-[140px]'
+            : 'min-h-[220px]'
       }`}
     >
-      <div className={`flex w-full flex-col ${dense ? 'gap-1' : 'gap-2'}`}>
+      <div
+        className={`flex w-full flex-col ${
+          mode === 'expanded' ? 'gap-3' : mode === 'dense' ? 'gap-1' : 'gap-2'
+        }`}
+      >
         {data.map((item) => {
           const intensity = 0.25 + (item.value / max) * 0.75;
           return (
             <div
               key={item.name}
               className={`flex w-full items-center justify-between rounded border border-border transition hover:border-accent/50 ${
-                dense ? 'px-2 py-1.5' : 'rounded-lg px-3 py-2.5'
+                mode === 'expanded'
+                  ? 'rounded-lg px-4 py-3.5'
+                  : mode === 'dense'
+                    ? 'px-2 py-1.5'
+                    : 'rounded-lg px-3 py-2.5'
               }`}
               style={{ background: `rgba(99, 102, 241, ${intensity * 0.35})` }}
             >
               <p
                 className={`min-w-0 flex-1 truncate font-mono text-slate-300 ${
-                  dense ? 'text-[10px]' : 'text-xs'
+                  mode === 'expanded' ? 'text-sm' : mode === 'dense' ? 'text-[10px]' : 'text-xs'
                 }`}
                 title={item.name}
               >
                 {item.name}
               </p>
-              <div className={`shrink-0 text-right ${dense ? 'ml-2' : 'ml-3'}`}>
-                <p className={`font-semibold tabular-nums ${dense ? 'text-sm' : 'text-lg'}`}>{item.value}</p>
-                {!dense && <p className="text-[10px] text-slate-500">edits</p>}
+              <div className={`shrink-0 text-right ${mode === 'expanded' ? 'ml-4' : mode === 'dense' ? 'ml-2' : 'ml-3'}`}>
+                <p
+                  className={`font-semibold tabular-nums ${
+                    mode === 'expanded' ? 'text-2xl' : mode === 'dense' ? 'text-sm' : 'text-lg'
+                  }`}
+                >
+                  {item.value}
+                </p>
+                {mode !== 'dense' && (
+                  <p className={`text-slate-500 ${mode === 'expanded' ? 'text-xs' : 'text-[10px]'}`}>edits</p>
+                )}
               </div>
             </div>
           );
@@ -513,33 +623,160 @@ export function McpBarChart({ data }) {
   );
 }
 
-export function AlertTicker({ alerts }) {
-  const dense = useDensity();
-  if (!alerts.length) {
-    return <NoData className={dense ? 'min-h-[28px]' : 'min-h-[48px]'} />;
-  }
+const TICKER_SPEEDS = {
+  slow: { label: 'Slow', multiplier: 1.5 },
+  medium: { label: 'Medium', multiplier: 0.85 },
+  fast: { label: 'Fast', multiplier: 0.45 },
+};
 
-  const items = [...alerts, ...alerts];
-  const severityColor = { critical: 'text-danger', high: 'text-warn', medium: 'text-accent' };
+function computeTickerDuration(text, speed = 'medium') {
+  const segment = `${text} · `;
+  const base = Math.max(50, Math.min(300, segment.length * 0.32));
+  return base * (TICKER_SPEEDS[speed]?.multiplier ?? 1);
+}
+
+function CommentaryTickerTape({ text, dense, speed = 'medium' }) {
+  const textSize = dense ? 'text-base' : 'text-xl';
+  const segment = `${text} · `;
+  const durationSec = computeTickerDuration(text, speed);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-danger/30 bg-panel">
-      <div className={`ticker-track flex whitespace-nowrap ${dense ? 'py-1' : 'py-2'}`}>
-        {items.map((a, i) => (
-          <span
-            key={`${a.timestamp}-${i}`}
-            className={`inline-flex items-center gap-2 ${dense ? 'mx-3 text-[10px]' : 'mx-6 text-sm'}`}
-          >
-            <span className={`font-semibold uppercase ${severityColor[a.severity] ?? 'text-slate-400'}`}>
-              [{a.type}]
-            </span>
-            <span className="text-slate-300">{a.message}</span>
-            <span className="text-slate-600">{formatTime(a.timestamp)}</span>
-          </span>
-        ))}
+    <div
+      className={`commentary-ticker-text overflow-hidden ${textSize} tracking-wide`}
+      aria-live="polite"
+    >
+      <div
+        className="commentary-ticker-track flex w-max whitespace-nowrap"
+        style={{ '--ticker-duration': `${durationSec}s` }}
+      >
+        <span className="shrink-0 pr-8">{segment}</span>
+        <span className="shrink-0 pr-8" aria-hidden="true">
+          {segment}
+        </span>
       </div>
     </div>
   );
+}
+
+function CommentaryFrame({ dense, padding, children, countdown, footer, frameClassName = 'border-border' }) {
+  return (
+    <div className={`rounded-lg border bg-panel ${frameClassName} ${padding}`}>
+      {children}
+      {footer}
+      {countdown}
+    </div>
+  );
+}
+
+export function Commentary({ commentary, tickerTape = false, tickerSpeed = 'medium' }) {
+  const mode = useLayoutMode();
+  const dense = mode === 'dense';
+  const expanded = mode === 'expanded';
+  const intervalSec = commentary?.intervalSec ?? 120;
+  const status = commentary?.status ?? 'idle';
+  const [secondsLeft, setSecondsLeft] = useState(() =>
+    computeSecondsLeft(commentary?.nextCommentaryAt, intervalSec),
+  );
+
+  useEffect(() => {
+    function tick() {
+      setSecondsLeft(computeSecondsLeft(commentary?.nextCommentaryAt, intervalSec));
+    }
+
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [commentary?.nextCommentaryAt, intervalSec]);
+
+  const padding = expanded ? 'px-6 py-5' : dense ? 'px-3 py-2' : 'px-4 py-3';
+  const textSize = expanded ? 'text-lg leading-relaxed' : dense ? 'text-xs' : 'text-sm';
+  const footerClass = `${expanded ? 'text-sm' : dense ? 'text-[10px]' : 'text-xs'} text-slate-500`;
+  const countdownClass = `font-mono tabular-nums ${expanded ? 'text-base' : dense ? 'text-xs' : 'text-sm'} font-medium text-accent`;
+  const showTickerContent = tickerTape && status === 'ready' && commentary?.text;
+
+  const countdown = (
+    <p className={`${footerClass} mt-2`}>
+      <span className="text-slate-500">Next summary in </span>
+      <span className={countdownClass}>
+        {status === 'generating' ? '…' : formatCountdown(secondsLeft)}
+      </span>
+    </p>
+  );
+
+  const metaFooter =
+    !showTickerContent && status === 'ready' && commentary?.text ? (
+      <p className={`mt-2 ${footerClass}`}>
+        {commentary.eventCount} event{commentary.eventCount === 1 ? '' : 's'}
+        {commentary.generatedAt != null && <> · updated {formatTime(commentary.generatedAt)}</>}
+      </p>
+    ) : null;
+
+  const frameProps = {
+    dense,
+    padding,
+    countdown,
+    footer: metaFooter,
+  };
+
+  if (status === 'disabled') {
+    return (
+      <CommentaryFrame {...frameProps}>
+        <p className={`${textSize} text-slate-500`}>Set ANTHROPIC_API_KEY to enable commentary</p>
+      </CommentaryFrame>
+    );
+  }
+
+  if (status === 'generating') {
+    return (
+      <CommentaryFrame {...frameProps}>
+        <p className={`${textSize} text-slate-400`}>Generating summary…</p>
+      </CommentaryFrame>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <CommentaryFrame {...frameProps} frameClassName="border-danger/30">
+        <p className={`${textSize} text-danger`}>{commentary.error ?? 'Failed to generate summary'}</p>
+      </CommentaryFrame>
+    );
+  }
+
+  if (status === 'idle' || !commentary?.text) {
+    return (
+      <CommentaryFrame {...frameProps}>
+        <p className={`${textSize} text-slate-500`}>
+          No activity in the last {intervalSec} seconds
+        </p>
+      </CommentaryFrame>
+    );
+  }
+
+  return (
+    <CommentaryFrame {...frameProps}>
+      {showTickerContent ? (
+        <CommentaryTickerTape text={commentary.text} dense={dense && !expanded} speed={tickerSpeed} />
+      ) : (
+        <p className={`${textSize} ${expanded ? 'text-slate-100' : 'text-slate-200'}`}>{commentary.text}</p>
+      )}
+    </CommentaryFrame>
+  );
+}
+
+function computeSecondsLeft(nextCommentaryAt, intervalSec = 120) {
+  if (nextCommentaryAt != null) {
+    return Math.max(0, Math.ceil(nextCommentaryAt - Date.now() / 1000));
+  }
+  return intervalSec;
+}
+
+function formatCountdown(totalSeconds) {
+  if (totalSeconds >= 60) {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  }
+  return `${totalSeconds}s`;
 }
 
 export function CodeChurnLine({ data }) {
@@ -603,26 +840,47 @@ export function SessionScatter({ data }) {
 }
 
 export function HumanInterventions({ data }) {
-  const dense = useDensity();
+  const mode = useLayoutMode();
   if (data.total === 0) {
     return <NoData />;
   }
   const spark = data.sparkline.map((d) => ({ ...d, label: formatTime(d.time) }));
+  const sparkHeight = mode === 'expanded' ? 200 : mode === 'dense' ? 48 : 80;
   return (
-    <div className={`flex flex-1 flex-col ${dense ? 'min-h-[110px]' : 'min-h-[220px]'}`}>
-      <div className={`flex shrink-0 items-baseline gap-2 ${dense ? 'mb-1' : 'mb-3'}`}>
-        <span className={`font-bold tabular-nums text-warn ${dense ? 'text-xl' : 'text-4xl'}`}>{data.total}</span>
-        <span className={`text-slate-500 ${dense ? 'text-[10px]' : 'text-sm'}`}>manual approvals (1h)</span>
+    <div
+      className={`flex flex-1 flex-col ${
+        mode === 'expanded' ? 'min-h-[calc(100vh-14rem)]' : mode === 'dense' ? 'min-h-[110px]' : 'min-h-[220px]'
+      }`}
+    >
+      <div className={`flex shrink-0 items-baseline gap-2 ${mode === 'expanded' ? 'mb-6' : mode === 'dense' ? 'mb-1' : 'mb-3'}`}>
+        <span
+          className={`font-bold tabular-nums text-warn ${
+            mode === 'expanded' ? 'text-6xl' : mode === 'dense' ? 'text-xl' : 'text-4xl'
+          }`}
+        >
+          {data.total}
+        </span>
+        <span
+          className={`text-slate-500 ${
+            mode === 'expanded' ? 'text-lg' : mode === 'dense' ? 'text-[10px]' : 'text-sm'
+          }`}
+        >
+          manual approvals (1h)
+        </span>
       </div>
       <div className="min-h-0 flex-1">
-        <ResponsiveContainer width="100%" height={dense ? 48 : 80}>
+        <ResponsiveContainer width="100%" height={sparkHeight}>
           <BarChart data={spark}>
             <Bar dataKey="count" fill="#f59e0b" radius={[2, 2, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
-      {data.recent.length > 0 && !dense && (
-        <ul className="mt-2 max-h-16 shrink-0 space-y-1 overflow-hidden text-xs text-slate-400">
+      {data.recent.length > 0 && mode !== 'dense' && (
+        <ul
+          className={`mt-2 shrink-0 space-y-1 overflow-hidden text-slate-400 ${
+            mode === 'expanded' ? 'max-h-48 text-sm' : 'max-h-16 text-xs'
+          }`}
+        >
           {data.recent.map((r, i) => (
             <li key={i} className="truncate">
               {formatTime(r.time)} · {r.message}

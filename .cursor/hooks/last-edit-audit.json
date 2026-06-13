@@ -1,5 +1,5 @@
 {
-  "timestamp": 1781388565.755898,
+  "timestamp": 1781390588.847496,
   "hook_name": "postToolUse",
   "parse_error": null,
   "context_keys": [
@@ -32,7 +32,7 @@
   "has_old_string": false,
   "has_new_string": true,
   "old_string_len": 0,
-  "new_string_len": 21373,
-  "lines_added": 569,
+  "new_string_len": 29322,
+  "lines_added": 769,
   "lines_removed": null
 }
