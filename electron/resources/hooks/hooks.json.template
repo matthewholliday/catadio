@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "DASHBOARD_PROJECT_ID={{PROJECT_ID}} python3 .cursor/hooks/dashboard_telemetry.py sessionStart"
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "DASHBOARD_PROJECT_ID={{PROJECT_ID}} python3 .cursor/hooks/dashboard_telemetry.py beforeShellExecution"
+      }
+    ],
+    "afterShellExecution": [
+      {
+        "command": "DASHBOARD_PROJECT_ID={{PROJECT_ID}} python3 .cursor/hooks/dashboard_telemetry.py afterShellExecution"
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "DASHBOARD_PROJECT_ID={{PROJECT_ID}} python3 .cursor/hooks/dashboard_telemetry.py afterFileEdit"
+      }
+    ],
+    "afterAgentThought": [
+      {
+        "command": "DASHBOARD_PROJECT_ID={{PROJECT_ID}} python3 .cursor/hooks/dashboard_telemetry.py afterAgentThought"
+      }
+    ],
+    "beforeMCPExecution": [
+      {
+        "command": "DASHBOARD_PROJECT_ID={{PROJECT_ID}} python3 .cursor/hooks/dashboard_telemetry.py beforeMCPExecution"
+      }
+    ],
+    "afterMCPExecution": [
+      {
+        "command": "DASHBOARD_PROJECT_ID={{PROJECT_ID}} python3 .cursor/hooks/dashboard_telemetry.py afterMCPExecution"
+      }
+    ],
+    "stop": [
+      {
+        "command": "DASHBOARD_PROJECT_ID={{PROJECT_ID}} python3 .cursor/hooks/dashboard_telemetry.py stop"
+      }
+    ]
+  }
+}

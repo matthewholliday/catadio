@@ -2,14 +2,51 @@
   "name": "agent-dashboard",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
     "dev:server": "node server/index.js",
     "dev:web": "npm run dev --prefix web",
     "seed": "node server/seed-demo.js",
-    "build": "npm run build --prefix web"
+    "build": "npm run build --prefix web",
+    "electron:dev": "concurrently \"npm run dev:server\" \"npm run dev:web\" \"wait-on http://localhost:3847/api/health http://localhost:5173 && electron electron/main.js\"",
+    "electron:build": "npm run build && electron-builder",
+    "electron:pack": "electron-builder --dir"
+  },
+  "dependencies": {
+    "electron-store": "^10.0.0"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.cursor.agent-dashboard",
+    "productName": "Cursor Agent Dashboard",
+    "files": [
+      "electron/**",
+      "server/**",
+      "web/dist/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "electron/resources",
+        "to": "resources"
+      }
+    ],
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.developer-tools"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "win": {
+      "target": "nsis"
+    }
   }
 }

@@ -2,6 +2,8 @@
 
 Real-time observability dashboard for Cursor agent activity, powered by project hooks that stream telemetry from the IDE into a local Node.js API and React UI.
 
+Available as a **web app** (browser) or **Electron desktop app** (open any Cursor project folder).
+
 ## What's included
 
 | Metric | Visualization | Hook source |
@@ -17,7 +19,7 @@ Real-time observability dashboard for Cursor agent activity, powered by project 
 | Autonomous Loop Duration | Scatter plot | `sessionStart` → `stop` |
 | Human-in-the-Loop | Counter + sparkline | `beforeShellExecution` with `permission: ask` |
 
-## Quick start
+## Quick start (web)
 
 ```bash
 # Install dependencies
@@ -30,6 +32,25 @@ npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) for the dashboard. The API listens on [http://localhost:3847](http://localhost:3847).
+
+## Quick start (Electron)
+
+```bash
+npm install
+npm install --prefix server
+npm install --prefix web
+
+# Launch desktop app (API + Vite + Electron)
+npm run electron:dev
+```
+
+Use **Open project** to pick a Cursor workspace folder. The app installs dashboard hooks into `.cursor/hooks.json` and scopes telemetry to that project.
+
+Package for distribution:
+
+```bash
+npm run electron:build
+```
 
 Seed demo data (optional, with the server already running):
 
@@ -70,6 +91,9 @@ dashboard_telemetry.py  ──POST──▶  Express API (/api/v1/telemetry)
 | `npm run dev` | Start API + web UI |
 | `npm run dev:server` | API only (port 3847) |
 | `npm run dev:web` | Vite dev server (port 5173) |
+| `npm run electron:dev` | Electron app with API + Vite |
+| `npm run electron:build` | Production build + package |
+| `npm run electron:pack` | Unpacked Electron build |
 | `npm run seed` | Populate demo telemetry |
 | `npm run build` | Production build of the web UI |
 

@@ -14,8 +14,8 @@ const STATE_LABELS = {
   afterMCPExecution: 'MCP Tool Calls',
 };
 
-export function computeMetrics() {
-  const events = getEvents();
+export function computeMetrics(projectId = 'default') {
+  const events = getEvents(projectId);
   const now = Date.now() / 1000;
   const windowSec = 3600;
   const recent = events.filter((e) => e.timestamp >= now - windowSec);
@@ -27,7 +27,7 @@ export function computeMetrics() {
     shellOutcomeSeries: computeShellOutcomes(recent),
     blastRadius: computeBlastRadius(recent),
     mcpUsage: computeMcpUsage(recent),
-    securityAlerts: getAlerts().slice(0, 20),
+    securityAlerts: getAlerts(projectId).slice(0, 20),
     codeChurnSeries: computeCodeChurn(recent),
     sessionScatter: computeSessionScatter(events),
     humanInterventions: computeHumanInterventions(recent),

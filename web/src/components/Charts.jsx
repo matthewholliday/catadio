@@ -1,3 +1,4 @@
+import { useId, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -21,16 +22,73 @@ import { formatTime } from '../useMetrics.js';
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ec4899', '#06b6d4', '#a78bfa'];
 
-export function Panel({ title, subtitle, children, className = '' }) {
+function panelStorageKey(title) {
+  return `panel-expanded:${title}`;
+}
+
+function readExpanded(title, defaultExpanded) {
+  try {
+    const stored = localStorage.getItem(panelStorageKey(title));
+    if (stored !== null) return stored === 'true';
+  } catch {
+    // Ignore storage errors (private mode, etc.)
+  }
+  return defaultExpanded;
+}
+
+export function Panel({ title, subtitle, children, className = '', defaultExpanded = true }) {
+  const contentId = useId();
+  const [expanded, setExpanded] = useState(() => readExpanded(title, defaultExpanded));
+
+  const toggle = () => {
+    setExpanded((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(panelStorageKey(title), String(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+  };
+
   return (
     <section
       className={`rounded-xl border border-border bg-surface p-4 shadow-lg shadow-black/20 ${className}`}
     >
-      <header className="mb-3">
-        <h2 className="text-sm font-semibold tracking-wide text-slate-100">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+      <header className={expanded ? 'mb-3' : ''}>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={expanded}
+          aria-controls={contentId}
+          className="group flex w-full items-start gap-2 text-left"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className={`mt-0.5 h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200 group-hover:text-slate-300 ${
+              expanded ? 'rotate-90' : ''
+            }`}
+          >
+            <path
+              fillRule="evenodd"
+              d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <span className="min-w-0 flex-1">
+            <h2 className="text-sm font-semibold tracking-wide text-slate-100 group-hover:text-white">
+              {title}
+            </h2>
+            {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+          </span>
+        </button>
       </header>
-      {children}
+      <div id={contentId} hidden={!expanded}>
+        {children}
+      </div>
     </section>
   );
 }

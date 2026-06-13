@@ -1,16 +1,24 @@
 const MAX_EVENTS = 5000;
 const MAX_ALERTS = 100;
 
-/** @type {import('./metrics.js').TelemetryEvent[]} */
-const events = [];
+/** @type {Map<string, { events: import('./metrics.js').TelemetryEvent[], alerts: import('./metrics.js').SecurityAlert[], sessionStarts: Map<string, number>, lastSeen: number }>} */
+const stores = new Map();
 
-/** @type {import('./metrics.js').SecurityAlert[]} */
-const alerts = [];
+function getOrCreate(projectId) {
+  const id = projectId || 'default';
+  if (!stores.has(id)) {
+    stores.set(id, {
+      events: [],
+      alerts: [],
+      sessionStarts: new Map(),
+      lastSeen: Date.now() / 1000,
+    });
+  }
+  return stores.get(id);
+}
 
-/** @type {Map<string, number>} */
-const sessionStarts = new Map();
-
-export function ingestEvent(payload) {
+export function ingestEvent(payload, projectId = 'default') {
+  const store = getOrCreate(projectId);
   const event = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     hook_event: payload.hook_event ?? 'unknown',
@@ -20,38 +28,40 @@ export function ingestEvent(payload) {
     model: payload.model ?? null,
     policy_verdict: payload.policy_verdict ?? 'ALLOWED',
     context_details: payload.context_details ?? {},
+    project_id: projectId,
   };
 
-  events.push(event);
-  if (events.length > MAX_EVENTS) {
-    events.splice(0, events.length - MAX_EVENTS);
+  store.events.push(event);
+  if (store.events.length > MAX_EVENTS) {
+    store.events.splice(0, store.events.length - MAX_EVENTS);
   }
 
-  trackSession(event);
-  maybeRecordAlert(event);
+  store.lastSeen = event.timestamp;
+  trackSession(store, event);
+  maybeRecordAlert(store, event);
 
   return event;
 }
 
-function trackSession(event) {
+function trackSession(store, event) {
   const convId = event.conversation_id;
   if (!convId) return;
 
-  if (event.hook_event === 'sessionStart' || !sessionStarts.has(convId)) {
-    sessionStarts.set(convId, event.timestamp);
+  if (event.hook_event === 'sessionStart' || !store.sessionStarts.has(convId)) {
+    store.sessionStarts.set(convId, event.timestamp);
   }
 
   if (event.hook_event === 'stop') {
-    const start = sessionStarts.get(convId);
+    const start = store.sessionStarts.get(convId);
     if (start != null) {
       event.session_duration_sec = event.timestamp - start;
     }
   }
 }
 
-function maybeRecordAlert(event) {
+function maybeRecordAlert(store, event) {
   if (event.policy_verdict === 'DENIED') {
-    pushAlert({
+    pushAlert(store, {
       type: 'policy_block',
       message: describeBlock(event),
       timestamp: event.timestamp,
@@ -64,7 +74,7 @@ function maybeRecordAlert(event) {
     const edits = event.context_details?.edits ?? event.context_details?.files ?? [];
     const text = JSON.stringify(edits).toLowerCase();
     if (/aws_secret|api_key|password\s*=|sk-[a-z0-9]{20,}/i.test(text)) {
-      pushAlert({
+      pushAlert(store, {
         type: 'secret_intercept',
         message: 'Potential secret detected in file edit',
         timestamp: event.timestamp,
@@ -76,7 +86,7 @@ function maybeRecordAlert(event) {
   if (event.hook_event === 'beforeShellExecution') {
     const cmd = event.context_details?.command ?? event.context_details?.text ?? '';
     if (/curl.*\|.*sh|typosquat|malware/i.test(cmd)) {
-      pushAlert({
+      pushAlert(store, {
         type: 'vulnerability',
         message: `Suspicious shell pattern: ${cmd.slice(0, 80)}`,
         timestamp: event.timestamp,
@@ -98,23 +108,39 @@ function describeBlock(event) {
   return `Policy denied ${event.hook_event}`;
 }
 
-function pushAlert(alert) {
-  alerts.unshift(alert);
-  if (alerts.length > MAX_ALERTS) {
-    alerts.pop();
+function pushAlert(store, alert) {
+  store.alerts.unshift(alert);
+  if (store.alerts.length > MAX_ALERTS) {
+    store.alerts.pop();
   }
 }
 
-export function getEvents() {
-  return events;
+export function getEvents(projectId = 'default') {
+  return getOrCreate(projectId).events;
 }
 
-export function getAlerts() {
-  return alerts;
+export function getAlerts(projectId = 'default') {
+  return getOrCreate(projectId).alerts;
+}
+
+export function clearProject(projectId) {
+  const store = stores.get(projectId);
+  if (!store) return false;
+  store.events.length = 0;
+  store.alerts.length = 0;
+  store.sessionStarts.clear();
+  return true;
 }
 
 export function clearAll() {
-  events.length = 0;
-  alerts.length = 0;
-  sessionStarts.clear();
+  stores.clear();
+}
+
+export function listProjects() {
+  return [...stores.entries()].map(([id, store]) => ({
+    id,
+    lastSeen: store.lastSeen,
+    eventCount: store.events.length,
+    alertCount: store.alerts.length,
+  }));
 }

@@ -15,22 +15,45 @@ const EMPTY_METRICS = {
   updatedAt: Date.now() / 1000,
 };
 
-export function useMetrics() {
+function getWebSocketUrl(projectId) {
+  const qs = `?project=${encodeURIComponent(projectId)}`;
+  if (import.meta.env.DEV) {
+    return `ws://localhost:3847/ws${qs}`;
+  }
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.host}/ws${qs}`;
+}
+
+export function useMetrics(projectId) {
   const [metrics, setMetrics] = useState(EMPTY_METRICS);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
+    if (projectId === null) {
+      setMetrics(EMPTY_METRICS);
+      setConnected(false);
+      return undefined;
+    }
+
+    const effectiveProjectId = projectId ?? 'default';
     let ws;
     let retryTimer;
+    let cancelled = false;
+    let intentionalClose = false;
 
     function connect() {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+      if (cancelled) return;
+
+      intentionalClose = false;
+      ws = new WebSocket(getWebSocketUrl(effectiveProjectId));
 
       ws.onopen = () => setConnected(true);
+      ws.onerror = () => setConnected(false);
       ws.onclose = () => {
         setConnected(false);
-        retryTimer = setTimeout(connect, 2000);
+        if (!cancelled && !intentionalClose) {
+          retryTimer = setTimeout(connect, 2000);
+        }
       };
       ws.onmessage = (msg) => {
         const { type, data } = JSON.parse(msg.data);
@@ -38,13 +61,20 @@ export function useMetrics() {
       };
     }
 
+    setMetrics(EMPTY_METRICS);
     connect();
 
     return () => {
+      cancelled = true;
       clearTimeout(retryTimer);
-      ws?.close();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        intentionalClose = true;
+        ws.close(1000, 'component unmounted');
+      } else {
+        ws?.close();
+      }
     };
-  }, []);
+  }, [projectId]);
 
   return { metrics, connected };
 }
