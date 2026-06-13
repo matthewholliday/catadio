@@ -21,6 +21,12 @@
         "command": "python3 .cursor/hooks/dashboard_telemetry.py afterFileEdit"
       }
     ],
+    "postToolUse": [
+      {
+        "command": "python3 .cursor/hooks/dashboard_telemetry.py postToolUse",
+        "matcher": "Write|StrReplace|ApplyPatch|EditNotebook"
+      }
+    ],
     "afterAgentThought": [
       {
         "command": "python3 .cursor/hooks/dashboard_telemetry.py afterAgentThought"

@@ -1,0 +1,38 @@
+{
+  "timestamp": 1781380070.693252,
+  "hook_name": "postToolUse",
+  "parse_error": null,
+  "context_keys": [
+    "conversation_id",
+    "cursor_version",
+    "duration",
+    "edits",
+    "file_path",
+    "generation_id",
+    "hook_event_name",
+    "model",
+    "session_id",
+    "tool_input",
+    "tool_name",
+    "tool_output",
+    "tool_use_id",
+    "transcript_path",
+    "user_email",
+    "workspace_roots"
+  ],
+  "file_path": "/Users/matthew/agent-dashboard/web/src/components/Charts.jsx",
+  "tool_name": "Write",
+  "edits_count": 1,
+  "edit_keys": [
+    "lines_added",
+    "lines_removed",
+    "new_string",
+    "old_string"
+  ],
+  "has_old_string": false,
+  "has_new_string": true,
+  "old_string_len": 0,
+  "new_string_len": 18002,
+  "lines_added": 538,
+  "lines_removed": null
+}

@@ -4,11 +4,14 @@ const EMPTY_METRICS = {
   agentStateDistribution: [],
   securityBlockRate: { blocked: 0, allowed: 0, rate: 0 },
   thinkTimeSeries: [],
+  thinkTimeSummary: { avgSec: 0, count: 0, direction: 'flat', pct: 0 },
   shellOutcomeSeries: [],
+  shellOutcomeSummary: { success: 0, failure: 0, rate: 0, direction: 'flat', pct: 0 },
   blastRadius: [],
   mcpUsage: [],
   securityAlerts: [],
   codeChurnSeries: [],
+  codeChurnSummary: { added: 0, removed: 0, net: 0, total: 0, direction: 'flat', pct: 0 },
   sessionScatter: [],
   humanInterventions: { total: 0, sparkline: [], recent: [] },
   totals: { events: 0, recentEvents: 0, sessions: 0 },
@@ -17,9 +20,6 @@ const EMPTY_METRICS = {
 
 function getWebSocketUrl(projectId) {
   const qs = `?project=${encodeURIComponent(projectId)}`;
-  if (import.meta.env.DEV) {
-    return `ws://localhost:3847/ws${qs}`;
-  }
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${protocol}//${window.location.host}/ws${qs}`;
 }
@@ -56,8 +56,14 @@ export function useMetrics(projectId) {
         }
       };
       ws.onmessage = (msg) => {
-        const { type, data } = JSON.parse(msg.data);
-        if (type === 'metrics') setMetrics(data);
+        try {
+          const { type, data } = JSON.parse(msg.data);
+          if (type === 'metrics') {
+            setMetrics({ ...EMPTY_METRICS, ...data });
+          }
+        } catch (err) {
+          console.error('Failed to parse metrics message', err);
+        }
       };
     }
 

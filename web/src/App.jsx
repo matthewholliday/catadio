@@ -19,6 +19,7 @@ import {
   AgentStateDonut,
   AlertTicker,
   BlastRadiusTreemap,
+  CodeChurnGauge,
   CodeChurnLine,
   HumanInterventions,
   McpBarChart,
@@ -26,7 +27,11 @@ import {
   SecurityGauge,
   SessionScatter,
   ShellOutcomeArea,
+  ShellOutcomeGauge,
+  ThinkTimeGauge,
   ThinkTimeLine,
+  DensityProvider,
+  DensityToggle,
 } from './components/Charts.jsx';
 import { ProjectBar } from './components/ProjectBar.jsx';
 import { useMetrics } from './useMetrics.js';
@@ -36,23 +41,57 @@ const DEFAULT_PANEL_ORDER = [
   'security-block',
   'human-loop',
   'think-time',
+  'think-time-gauge',
   'shell-outcome',
+  'shell-outcome-gauge',
   'code-churn',
+  'code-churn-gauge',
   'session-scatter',
   'blast-radius',
   'mcp-usage',
 ];
 
 const PANEL_ORDER_KEY = 'panel-order';
+const HIGH_DENSITY_KEY = 'high-density';
+
+function readHighDensity() {
+  try {
+    return localStorage.getItem(HIGH_DENSITY_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function saveHighDensity(value) {
+  try {
+    localStorage.setItem(HIGH_DENSITY_KEY, String(value));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function migratePanelOrder(stored) {
+  if (!Array.isArray(stored)) return DEFAULT_PANEL_ORDER;
+
+  const seen = new Set();
+  const merged = [];
+  for (const id of stored) {
+    if (DEFAULT_PANEL_ORDER.includes(id) && !seen.has(id)) {
+      merged.push(id);
+      seen.add(id);
+    }
+  }
+  for (const id of DEFAULT_PANEL_ORDER) {
+    if (!seen.has(id)) merged.push(id);
+  }
+  return merged.length ? merged : DEFAULT_PANEL_ORDER;
+}
 
 function readPanelOrder() {
   try {
     const stored = localStorage.getItem(PANEL_ORDER_KEY);
     if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length === DEFAULT_PANEL_ORDER.length) {
-        return parsed;
-      }
+      return migratePanelOrder(JSON.parse(stored));
     }
   } catch {
     // Ignore storage errors
@@ -83,7 +122,7 @@ function SortablePanel({ id, children }) {
   );
 }
 
-function SettingsModal({ onClose, onResetLayout }) {
+function SettingsModal({ onClose, onResetLayout, highDensity, onHighDensityChange }) {
   useEffect(() => {
     const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handleKey);
@@ -115,6 +154,14 @@ function SettingsModal({ onClose, onResetLayout }) {
 
         <div className="space-y-4">
           <div className="rounded-lg border border-border p-4">
+            <h3 className="mb-1 text-sm font-medium text-slate-200">Display</h3>
+            <p className="mb-3 text-xs text-slate-500">
+              Pack more panels on screen with smaller charts and tighter spacing.
+            </p>
+            <DensityToggle checked={highDensity} onChange={onHighDensityChange} />
+          </div>
+
+          <div className="rounded-lg border border-border p-4">
             <h3 className="mb-1 text-sm font-medium text-slate-200">Layout</h3>
             <p className="mb-3 text-xs text-slate-500">
               Resets the panel order to the original default arrangement.
@@ -137,6 +184,7 @@ export default function App() {
   const [project, setProject] = useState(null);
   const [panelOrder, setPanelOrder] = useState(readPanelOrder);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [highDensity, setHighDensity] = useState(readHighDensity);
 
   const isElectron = typeof window.dashboard !== 'undefined';
   const projectId = isElectron ? (project?.id ?? null) : 'default';
@@ -185,6 +233,11 @@ export default function App() {
     setSettingsOpen(false);
   }, []);
 
+  const handleHighDensityChange = useCallback((value) => {
+    setHighDensity(value);
+    saveHighDensity(value);
+  }, []);
+
   const showEmptyState = isElectron && !project;
 
   const panelContent = {
@@ -192,11 +245,15 @@ export default function App() {
       <Panel title="Agent State Distribution" subtitle="Metric #1 · Donut chart" dragHandleProps={dragHandleProps}>
         <div className="flex min-h-0 flex-1 flex-col">
           <AgentStateDonut data={metrics.agentStateDistribution} />
-          <ul className="mt-2 flex shrink-0 flex-wrap justify-center gap-3 text-xs text-slate-400">
+          <ul
+            className={`mt-2 flex shrink-0 flex-wrap justify-center text-slate-400 ${
+              highDensity ? 'gap-1.5 text-[10px]' : 'gap-3 text-xs'
+            }`}
+          >
             {metrics.agentStateDistribution.map((d, i) => (
               <li key={d.name}>
                 <span
-                  className="mr-1 inline-block h-2 w-2 rounded-full"
+                  className={`mr-1 inline-block rounded-full ${highDensity ? 'h-1.5 w-1.5' : 'h-2 w-2'}`}
                   style={{ background: `hsl(${240 + i * 40}, 70%, 60%)` }}
                 />
                 {d.name} {d.percent}%
@@ -221,14 +278,29 @@ export default function App() {
         <ThinkTimeLine data={metrics.thinkTimeSeries} />
       </Panel>
     ),
+    'think-time-gauge': (dragHandleProps) => (
+      <Panel title="Think Time Trend" subtitle="Metric #3 · Reasoning latency trend" dragHandleProps={dragHandleProps}>
+        <ThinkTimeGauge {...metrics.thinkTimeSummary} />
+      </Panel>
+    ),
     'shell-outcome': (dragHandleProps) => (
       <Panel title="Shell Success vs Failure" subtitle="Metric #4 · Exit code time series" dragHandleProps={dragHandleProps}>
         <ShellOutcomeArea data={metrics.shellOutcomeSeries} />
       </Panel>
     ),
+    'shell-outcome-gauge': (dragHandleProps) => (
+      <Panel title="Success vs Failure Trend" subtitle="Metric #4 · Shell exit code trend" dragHandleProps={dragHandleProps}>
+        <ShellOutcomeGauge {...metrics.shellOutcomeSummary} />
+      </Panel>
+    ),
     'code-churn': (dragHandleProps) => (
       <Panel title="Code Churn Volume" subtitle="Metric #8 · Lines added/removed" dragHandleProps={dragHandleProps}>
         <CodeChurnLine data={metrics.codeChurnSeries} />
+      </Panel>
+    ),
+    'code-churn-gauge': (dragHandleProps) => (
+      <Panel title="Code Churn Trend" subtitle="Metric #8 · Edit velocity trend" dragHandleProps={dragHandleProps}>
+        <CodeChurnGauge {...metrics.codeChurnSummary} />
       </Panel>
     ),
     'session-scatter': (dragHandleProps) => (
@@ -249,12 +321,15 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0c10]">
+    <DensityProvider dense={highDensity}>
+      <div className="min-h-screen bg-[#0b0c10]">
       <ProjectBar
         project={project}
         onOpen={handleOpen}
         onSwitch={handleSwitch}
         connected={connected}
+        highDensity={highDensity}
+        onHighDensityChange={handleHighDensityChange}
       />
 
       <button
@@ -268,6 +343,7 @@ export default function App() {
         <header className="sticky top-0 z-10 border-b border-border bg-panel/90 backdrop-blur">
           <div className="mx-auto flex max-w-[1600px] items-center justify-end px-4 py-2">
             <div className="flex items-center gap-4 text-sm">
+              <DensityToggle checked={highDensity} onChange={handleHighDensityChange} />
               <div className="hidden sm:block text-right">
                 <p className="text-slate-400">
                   {metrics.totals.recentEvents} events / {metrics.totals.sessions} sessions (1h)
@@ -285,7 +361,7 @@ export default function App() {
         </header>
       )}
 
-      <main className="mx-auto max-w-[1600px] px-4 py-4">
+      <main className={`mx-auto max-w-[1600px] px-4 ${highDensity ? 'py-2' : 'py-4'}`}>
         {showEmptyState ? (
           <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
             <h2 className="text-2xl font-semibold text-white">No project selected</h2>
@@ -303,13 +379,23 @@ export default function App() {
           </div>
         ) : (
           <>
-            <Panel title="Security Interceptions" subtitle="Metric #7 · Real-time alert ticker" className="mb-3">
+            <Panel
+              title="Security Interceptions"
+              subtitle="Metric #7 · Real-time alert ticker"
+              className={highDensity ? 'mb-1.5' : 'mb-3'}
+            >
               <AlertTicker alerts={metrics.securityAlerts} />
             </Panel>
 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={panelOrder} strategy={rectSortingStrategy}>
-                <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div
+                  className={`grid grid-cols-1 items-stretch sm:grid-cols-2 ${
+                    highDensity
+                      ? 'gap-1.5 lg:grid-cols-4 xl:grid-cols-6'
+                      : 'gap-3 lg:grid-cols-3'
+                  }`}
+                >
                   {panelOrder.map((id) => (
                     <SortablePanel key={id} id={id}>
                       {({ dragHandleProps }) => panelContent[id]?.(dragHandleProps)}
@@ -326,8 +412,11 @@ export default function App() {
         <SettingsModal
           onClose={() => setSettingsOpen(false)}
           onResetLayout={handleResetLayout}
+          highDensity={highDensity}
+          onHighDensityChange={handleHighDensityChange}
         />
       )}
-    </div>
+      </div>
+    </DensityProvider>
   );
 }

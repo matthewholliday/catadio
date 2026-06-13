@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 
-export function ProjectBar({ project, onOpen, onSwitch, connected }) {
+import { DensityToggle } from './Charts.jsx';
+
+export function ProjectBar({ project, onOpen, onSwitch, connected, highDensity, onHighDensityChange }) {
   const [recent, setRecent] = useState([]);
   const [hookStatus, setHookStatus] = useState(null);
   const isElectron = typeof window.dashboard !== 'undefined';
@@ -78,6 +80,7 @@ export function ProjectBar({ project, onOpen, onSwitch, connected }) {
         </div>
 
         <div className="flex items-center gap-3 text-sm">
+          <DensityToggle checked={highDensity} onChange={onHighDensityChange} />
           <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${hookBadge.className}`}>
             {hookBadge.label}
           </span>

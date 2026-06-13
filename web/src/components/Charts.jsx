@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { createContext, useContext, useId, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -22,10 +22,39 @@ import { formatTime } from '../useMetrics.js';
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ec4899', '#06b6d4', '#a78bfa'];
 
-function ChartArea({ children, className = '' }) {
+const DensityContext = createContext(false);
+
+export function DensityProvider({ dense, children }) {
+  return <DensityContext.Provider value={dense}>{children}</DensityContext.Provider>;
+}
+
+function useDensity() {
+  return useContext(DensityContext);
+}
+
+function chartTick(dense) {
+  return { fill: '#94a3b8', fontSize: dense ? 8 : 10 };
+}
+
+export function DensityToggle({ checked, onChange, className = '' }) {
   return (
-    <div className={`min-h-[220px] flex-1 ${className}`}>
-      <ResponsiveContainer width="100%" height="100%">
+    <label className={`flex cursor-pointer select-none items-center gap-2 text-sm text-slate-400 ${className}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-3.5 w-3.5 rounded border-border bg-panel text-accent focus:ring-accent/50"
+      />
+      High density
+    </label>
+  );
+}
+
+function ChartArea({ children, className = '' }) {
+  const dense = useDensity();
+  return (
+    <div className={`${dense ? 'h-[110px]' : 'h-[220px]'} flex-1 ${className}`}>
+      <ResponsiveContainer width="100%" height="100%" key={dense ? 'dense' : 'normal'}>
         {children}
       </ResponsiveContainer>
     </div>
@@ -47,6 +76,7 @@ function readExpanded(title, defaultExpanded) {
 }
 
 export function Panel({ title, subtitle, children, className = '', defaultExpanded = true, dragHandleProps = null }) {
+  const dense = useDensity();
   const contentId = useId();
   const [expanded, setExpanded] = useState(() => readExpanded(title, defaultExpanded));
 
@@ -64,9 +94,11 @@ export function Panel({ title, subtitle, children, className = '', defaultExpand
 
   return (
     <section
-      className={`group/panel flex h-full flex-col rounded-xl border border-border bg-surface p-3 shadow-lg shadow-black/20 ${className}`}
+      className={`group/panel flex h-full flex-col rounded-xl border border-border bg-surface shadow-lg shadow-black/20 ${
+        dense ? 'p-1.5' : 'p-3'
+      } ${className}`}
     >
-      <header className={`shrink-0 ${expanded ? 'mb-2' : ''}`}>
+      <header className={`shrink-0 ${expanded ? (dense ? 'mb-1' : 'mb-2') : ''}`}>
         <div className="flex items-start gap-1">
           {dragHandleProps && (
             <button
@@ -107,10 +139,14 @@ export function Panel({ title, subtitle, children, className = '', defaultExpand
               />
             </svg>
             <span className="min-w-0 flex-1">
-              <h2 className="text-sm font-semibold tracking-wide text-slate-100 group-hover:text-white">
+              <h2
+                className={`font-semibold tracking-wide text-slate-100 group-hover:text-white ${
+                  dense ? 'text-xs leading-tight' : 'text-sm'
+                }`}
+              >
                 {title}
               </h2>
-              {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+              {subtitle && !dense && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
             </span>
           </button>
         </div>
@@ -127,6 +163,7 @@ export function Panel({ title, subtitle, children, className = '', defaultExpand
 }
 
 export function AgentStateDonut({ data }) {
+  const dense = useDensity();
   const chartData = data.length ? data : [{ name: 'Waiting', value: 1, percent: 100 }];
   return (
     <ChartArea>
@@ -135,9 +172,9 @@ export function AgentStateDonut({ data }) {
           data={chartData}
           dataKey="value"
           nameKey="name"
-          innerRadius={55}
-          outerRadius={85}
-          paddingAngle={3}
+          innerRadius={dense ? 32 : 55}
+          outerRadius={dense ? 52 : 85}
+          paddingAngle={dense ? 2 : 3}
         >
           {chartData.map((_, i) => (
             <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="transparent" />
@@ -160,22 +197,33 @@ export function AgentStateDonut({ data }) {
 }
 
 export function SecurityGauge({ rate, blocked, allowed }) {
+  const dense = useDensity();
   const clamped = Math.min(rate, 100);
   const hue = clamped < 5 ? 142 : clamped < 15 ? 45 : 0;
   return (
-    <div className="flex min-h-[220px] flex-1 flex-col items-center justify-center py-4">
+    <div
+      className={`flex flex-1 flex-col items-center justify-center ${
+        dense ? 'min-h-[110px] py-1' : 'min-h-[220px] py-4'
+      }`}
+    >
       <div
-        className="relative flex h-36 w-36 items-end justify-center rounded-full border-8 border-border"
+        className={`relative flex items-end justify-center rounded-full border-border ${
+          dense ? 'h-20 w-20 border-4' : 'h-36 w-36 border-8'
+        }`}
         style={{
           background: `conic-gradient(hsl(${hue} 70% 45%) ${clamped * 3.6}deg, #2a2f3d 0)`,
         }}
       >
-        <div className="absolute inset-3 flex flex-col items-center justify-center rounded-full bg-surface">
-          <span className="text-3xl font-bold tabular-nums">{rate}%</span>
-          <span className="text-xs text-slate-500">blocked</span>
+        <div
+          className={`absolute flex flex-col items-center justify-center rounded-full bg-surface ${
+            dense ? 'inset-1.5' : 'inset-3'
+          }`}
+        >
+          <span className={`font-bold tabular-nums ${dense ? 'text-lg' : 'text-3xl'}`}>{rate}%</span>
+          {!dense && <span className="text-xs text-slate-500">blocked</span>}
         </div>
       </div>
-      <div className="mt-4 flex gap-6 text-xs">
+      <div className={`flex text-xs ${dense ? 'mt-1 gap-3' : 'mt-4 gap-6'}`}>
         <span className="text-success">● {allowed} allowed</span>
         <span className="text-danger">● {blocked} blocked</span>
       </div>
@@ -183,14 +231,99 @@ export function SecurityGauge({ rate, blocked, allowed }) {
   );
 }
 
+function TrendArrow({ direction, positive = 'up', dense = false }) {
+  const size = dense ? 'text-xl' : 'text-4xl';
+  if (direction === 'flat') {
+    return <span className={`${size} leading-none text-slate-500`}>→</span>;
+  }
+
+  const isPositive = direction === positive;
+  const color = isPositive ? 'text-success' : 'text-danger';
+  const arrow = direction === 'up' ? '↑' : '↓';
+
+  return <span className={`${size} leading-none ${color}`}>{arrow}</span>;
+}
+
+function TrendStat({ value, unit, direction, positive = 'up', footer }) {
+  const dense = useDensity();
+  return (
+    <div
+      className={`flex flex-1 flex-col items-center justify-center ${
+        dense ? 'min-h-[110px] gap-0.5 py-1' : 'min-h-[220px] gap-2 py-4'
+      }`}
+    >
+      <div className={`flex items-center ${dense ? 'gap-2' : 'gap-4'}`}>
+        <span className={`font-bold tabular-nums text-slate-100 ${dense ? 'text-2xl' : 'text-5xl'}`}>
+          {value}
+        </span>
+        <TrendArrow direction={direction} positive={positive} dense={dense} />
+      </div>
+      {unit && <span className={`text-slate-500 ${dense ? 'text-[10px]' : 'text-sm'}`}>{unit}</span>}
+      {footer && (
+        <div className={`flex flex-wrap justify-center text-xs ${dense ? 'mt-1 gap-2' : 'mt-3 gap-4'}`}>
+          {footer}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ShellOutcomeGauge({ success, failure, rate, direction }) {
+  return (
+    <TrendStat
+      value={`${rate}%`}
+      unit="success rate (1h)"
+      direction={direction}
+      positive="up"
+      footer={
+        <>
+          <span className="text-success">● {success} passed</span>
+          <span className="text-danger">● {failure} failed</span>
+        </>
+      }
+    />
+  );
+}
+
+export function ThinkTimeGauge({ avgSec, count, direction }) {
+  return (
+    <TrendStat
+      value={avgSec}
+      unit="avg seconds (1h)"
+      direction={direction}
+      positive="down"
+      footer={<span className="text-slate-400">● {count} reasoning cycles</span>}
+    />
+  );
+}
+
+export function CodeChurnGauge({ added, removed, net, direction }) {
+  return (
+    <TrendStat
+      value={net >= 0 ? `+${net}` : net}
+      unit="net lines (1h)"
+      direction={direction}
+      positive="up"
+      footer={
+        <>
+          <span className="text-success">● {added} added</span>
+          <span className="text-danger">● {removed} removed</span>
+        </>
+      }
+    />
+  );
+}
+
 export function ThinkTimeLine({ data }) {
+  const dense = useDensity();
   const chartData = data.map((d) => ({ ...d, label: formatTime(d.time) }));
+  const tick = chartTick(dense);
   return (
     <ChartArea>
       <LineChart data={chartData}>
         <CartesianGrid stroke="#2a2f3d" strokeDasharray="3 3" />
-        <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-        <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} unit="s" />
+        <XAxis dataKey="label" tick={tick} />
+        <YAxis tick={tick} unit="s" width={dense ? 28 : undefined} />
         <Tooltip
           contentStyle={{ background: '#1a1d27', border: '1px solid #2a2f3d', borderRadius: 8 }}
         />
@@ -201,13 +334,15 @@ export function ThinkTimeLine({ data }) {
 }
 
 export function ShellOutcomeArea({ data }) {
+  const dense = useDensity();
   const chartData = data.map((d) => ({ ...d, label: formatTime(d.time) }));
+  const tick = chartTick(dense);
   return (
     <ChartArea>
       <AreaChart data={chartData}>
         <CartesianGrid stroke="#2a2f3d" strokeDasharray="3 3" />
-        <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-        <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} allowDecimals={false} />
+        <XAxis dataKey="label" tick={tick} />
+        <YAxis tick={tick} allowDecimals={false} width={dense ? 28 : undefined} />
         <Tooltip
           contentStyle={{ background: '#1a1d27', border: '1px solid #2a2f3d', borderRadius: 8 }}
         />
@@ -219,30 +354,36 @@ export function ShellOutcomeArea({ data }) {
 }
 
 export function BlastRadiusTreemap({ data }) {
+  const dense = useDensity();
   if (!data.length) {
     return (
-      <div className="flex min-h-[220px] flex-1 items-center justify-center">
-        <p className="text-sm text-slate-500">No file edits yet</p>
+      <div className={`flex flex-1 items-center justify-center ${dense ? 'min-h-[110px]' : 'min-h-[220px]'}`}>
+        <p className={`text-slate-500 ${dense ? 'text-xs' : 'text-sm'}`}>No file edits yet</p>
       </div>
     );
   }
   const max = Math.max(...data.map((d) => d.value));
   return (
-    <div className="min-h-[220px] flex-1 overflow-y-auto">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <div className={`flex-1 overflow-y-auto ${dense ? 'min-h-[110px] max-h-[140px]' : 'min-h-[220px]'}`}>
+      <div className={`grid grid-cols-2 sm:grid-cols-3 ${dense ? 'gap-1' : 'gap-2'}`}>
         {data.map((item) => {
           const intensity = 0.25 + (item.value / max) * 0.75;
           return (
             <div
               key={item.name}
-              className="rounded-lg border border-border p-3 transition hover:border-accent/50"
+              className={`rounded border border-border transition hover:border-accent/50 ${
+                dense ? 'p-1.5' : 'rounded-lg p-3'
+              }`}
               style={{ background: `rgba(99, 102, 241, ${intensity * 0.35})` }}
             >
-              <p className="truncate font-mono text-xs text-slate-300" title={item.name}>
+              <p
+                className={`truncate font-mono text-slate-300 ${dense ? 'text-[10px]' : 'text-xs'}`}
+                title={item.name}
+              >
                 {item.name}
               </p>
-              <p className="mt-1 text-lg font-semibold tabular-nums">{item.value}</p>
-              <p className="text-[10px] text-slate-500">edits</p>
+              <p className={`font-semibold tabular-nums ${dense ? 'text-sm' : 'mt-1 text-lg'}`}>{item.value}</p>
+              {!dense && <p className="text-[10px] text-slate-500">edits</p>}
             </div>
           );
         })}
@@ -252,17 +393,19 @@ export function BlastRadiusTreemap({ data }) {
 }
 
 export function McpBarChart({ data }) {
+  const dense = useDensity();
   const chartData = data.length ? data : [{ name: 'none', count: 0 }];
+  const tick = chartTick(dense);
   return (
     <ChartArea>
-      <BarChart data={chartData} layout="vertical" margin={{ left: 20 }}>
+      <BarChart data={chartData} layout="vertical" margin={{ left: dense ? 8 : 20 }}>
         <CartesianGrid stroke="#2a2f3d" strokeDasharray="3 3" horizontal={false} />
-        <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 10 }} allowDecimals={false} />
+        <XAxis type="number" tick={tick} allowDecimals={false} />
         <YAxis
           type="category"
           dataKey="name"
-          width={80}
-          tick={{ fill: '#94a3b8', fontSize: 10 }}
+          width={dense ? 56 : 80}
+          tick={tick}
         />
         <Tooltip
           contentStyle={{ background: '#1a1d27', border: '1px solid #2a2f3d', borderRadius: 8 }}
@@ -274,9 +417,14 @@ export function McpBarChart({ data }) {
 }
 
 export function AlertTicker({ alerts }) {
+  const dense = useDensity();
   if (!alerts.length) {
     return (
-      <div className="flex h-12 items-center justify-center rounded-lg bg-panel text-sm text-slate-500">
+      <div
+        className={`flex items-center justify-center rounded-lg bg-panel text-slate-500 ${
+          dense ? 'h-7 text-xs' : 'h-12 text-sm'
+        }`}
+      >
         No security events in the last hour
       </div>
     );
@@ -287,9 +435,12 @@ export function AlertTicker({ alerts }) {
 
   return (
     <div className="overflow-hidden rounded-lg border border-danger/30 bg-panel">
-      <div className="ticker-track flex whitespace-nowrap py-2">
+      <div className={`ticker-track flex whitespace-nowrap ${dense ? 'py-1' : 'py-2'}`}>
         {items.map((a, i) => (
-          <span key={`${a.timestamp}-${i}`} className="mx-6 inline-flex items-center gap-2 text-sm">
+          <span
+            key={`${a.timestamp}-${i}`}
+            className={`inline-flex items-center gap-2 ${dense ? 'mx-3 text-[10px]' : 'mx-6 text-sm'}`}
+          >
             <span className={`font-semibold uppercase ${severityColor[a.severity] ?? 'text-slate-400'}`}>
               [{a.type}]
             </span>
@@ -303,13 +454,15 @@ export function AlertTicker({ alerts }) {
 }
 
 export function CodeChurnLine({ data }) {
+  const dense = useDensity();
   const chartData = data.map((d) => ({ ...d, label: formatTime(d.time) }));
+  const tick = chartTick(dense);
   return (
     <ChartArea>
       <LineChart data={chartData}>
         <CartesianGrid stroke="#2a2f3d" strokeDasharray="3 3" />
-        <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-        <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} />
+        <XAxis dataKey="label" tick={tick} />
+        <YAxis tick={tick} width={dense ? 28 : undefined} />
         <Tooltip
           contentStyle={{ background: '#1a1d27', border: '1px solid #2a2f3d', borderRadius: 8 }}
         />
@@ -322,7 +475,9 @@ export function CodeChurnLine({ data }) {
 }
 
 export function SessionScatter({ data }) {
+  const dense = useDensity();
   const chartData = data.length ? data : [{ durationMin: 0, model: 'none', timestamp: Date.now() / 1000 }];
+  const tick = chartTick(dense);
   return (
     <ChartArea>
       <ScatterChart>
@@ -331,7 +486,7 @@ export function SessionScatter({ data }) {
           type="number"
           dataKey="timestamp"
           name="Time"
-          tick={{ fill: '#94a3b8', fontSize: 10 }}
+          tick={tick}
           tickFormatter={formatTime}
         />
         <YAxis
@@ -339,9 +494,10 @@ export function SessionScatter({ data }) {
           dataKey="durationMin"
           name="Duration"
           unit=" min"
-          tick={{ fill: '#94a3b8', fontSize: 10 }}
+          tick={tick}
+          width={dense ? 32 : undefined}
         />
-        <ZAxis range={[60, 200]} />
+        <ZAxis range={dense ? [30, 100] : [60, 200]} />
         <Tooltip
           contentStyle={{ background: '#1a1d27', border: '1px solid #2a2f3d', borderRadius: 8 }}
           formatter={(val, name) => [name === 'Duration' ? `${val} min` : formatTime(val), name]}
@@ -353,21 +509,22 @@ export function SessionScatter({ data }) {
 }
 
 export function HumanInterventions({ data }) {
+  const dense = useDensity();
   const spark = data.sparkline.map((d) => ({ ...d, label: formatTime(d.time) }));
   return (
-    <div className="flex min-h-[220px] flex-1 flex-col">
-      <div className="mb-3 flex shrink-0 items-baseline gap-2">
-        <span className="text-4xl font-bold tabular-nums text-warn">{data.total}</span>
-        <span className="text-sm text-slate-500">manual approvals (1h)</span>
+    <div className={`flex flex-1 flex-col ${dense ? 'min-h-[110px]' : 'min-h-[220px]'}`}>
+      <div className={`flex shrink-0 items-baseline gap-2 ${dense ? 'mb-1' : 'mb-3'}`}>
+        <span className={`font-bold tabular-nums text-warn ${dense ? 'text-xl' : 'text-4xl'}`}>{data.total}</span>
+        <span className={`text-slate-500 ${dense ? 'text-[10px]' : 'text-sm'}`}>manual approvals (1h)</span>
       </div>
       <div className="min-h-0 flex-1">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={dense ? 48 : 80}>
           <BarChart data={spark}>
             <Bar dataKey="count" fill="#f59e0b" radius={[2, 2, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
-      {data.recent.length > 0 && (
+      {data.recent.length > 0 && !dense && (
         <ul className="mt-2 max-h-16 shrink-0 space-y-1 overflow-hidden text-xs text-slate-400">
           {data.recent.map((r, i) => (
             <li key={i} className="truncate">
