@@ -1,0 +1,15 @@
+{
+  "name": "agent-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
+    "dev:server": "node server/index.js",
+    "dev:web": "npm run dev --prefix web",
+    "seed": "node server/seed-demo.js",
+    "build": "npm run build --prefix web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
