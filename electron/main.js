@@ -168,6 +168,8 @@ async function startDashboardServer() {
 // ---------------------------------------------------------------------------
 
 // Fixed windowed-mode dimensions (non-resizable baseline).
+const BACKGROUND_WIDTH = 200;
+const BACKGROUND_HEIGHT = 420;
 const WINDOWED_WIDTH = 1400;
 const FOOTER_HEIGHT = 23; // 10px text + py-1.5 (12px) + 1px border
 const WINDOWED_HEIGHT_NORMAL = 900 + FOOTER_HEIGHT;
@@ -299,13 +301,15 @@ function registerIpcHandlers() {
       if (mainWindow.isFullScreen()) {
         mainWindow.setFullScreen(false);
       }
-      mainWindow.setMinimumSize(280, 200);
-      mainWindow.setSize(280, 420);
+      mainWindow.setMinimumSize(BACKGROUND_WIDTH, 200);
+      mainWindow.setSize(BACKGROUND_WIDTH, BACKGROUND_HEIGHT);
       mainWindow.setResizable(false);
+      mainWindow.center();
     } else {
       mainWindow.setMinimumSize(WINDOWED_WIDTH, WINDOWED_HEIGHT_NORMAL);
       mainWindow.setSize(WINDOWED_WIDTH, WINDOWED_HEIGHT_NORMAL);
       mainWindow.setResizable(false);
+      mainWindow.center();
     }
   });
 

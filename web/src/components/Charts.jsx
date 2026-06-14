@@ -17,7 +17,7 @@ import {
   ZAxis,
 } from 'recharts';
 import { formatTime } from '../useMetrics.js';
-import { useTheme, THEME_COLORS } from '../theme.js';
+import { useTheme, THEME_COLORS, chartTooltipProps } from '../theme.js';
 
 const DensityContext = createContext(false);
 const ExpandedContext = createContext(false);
@@ -46,7 +46,7 @@ function useLayoutMode() {
   return 'normal';
 }
 
-function chartTick(dense, color = '#94a3b8') {
+function chartTick(dense, color) {
   return { fill: color, fontSize: dense ? 8 : 10 };
 }
 
@@ -312,7 +312,7 @@ export function AgentStateBarChart({ data }) {
   return (
     <ChartArea>
       <BarChart data={data} layout="vertical" margin={{ left: dense ? 4 : 8, right: dense ? 8 : 12 }}>
-        <CartesianGrid stroke={tc.border} strokeDasharray="3 3" horizontal={false} />
+        <CartesianGrid stroke={tc.grid} strokeDasharray="3 3" horizontal={false} />
         <XAxis type="number" tick={tick} allowDecimals={false} />
         <YAxis
           type="category"
@@ -321,14 +321,7 @@ export function AgentStateBarChart({ data }) {
           tick={tick}
         />
         <Tooltip
-          contentStyle={{
-            background: tc.surface,
-            border: `1px solid ${tc.border}`,
-            borderRadius: 8,
-            color: tc.textPrimary,
-          }}
-          labelStyle={{ color: tc.textPrimary }}
-          itemStyle={{ color: tc.textSecondary }}
+          {...chartTooltipProps(tc)}
           formatter={(value, name, props) => [`${value} (${props.payload.percent}%)`, name]}
         />
         <Bar dataKey="value" radius={[0, 4, 4, 0]}>
@@ -532,12 +525,10 @@ export function ThinkTimeLine({ data }) {
   return (
     <ChartArea>
       <LineChart data={chartData}>
-        <CartesianGrid stroke={tc.border} strokeDasharray="3 3" />
+        <CartesianGrid stroke={tc.grid} strokeDasharray="3 3" />
         <XAxis dataKey="label" tick={tick} />
         <YAxis tick={tick} unit="s" width={dense ? 28 : undefined} />
-        <Tooltip
-          contentStyle={{ background: tc.surface, border: `1px solid ${tc.border}`, borderRadius: 8 }}
-        />
+        <Tooltip {...chartTooltipProps(tc)} />
         <Line type="monotone" dataKey="avgThinkSec" stroke={tc.accent} strokeWidth={2} dot={chartData.length === 1 ? { r: 3, fill: tc.accent } : false} />
       </LineChart>
     </ChartArea>
@@ -556,14 +547,12 @@ export function ShellOutcomeArea({ data }) {
   return (
     <ChartArea>
       <AreaChart data={chartData}>
-        <CartesianGrid stroke={tc.border} strokeDasharray="3 3" />
+        <CartesianGrid stroke={tc.grid} strokeDasharray="3 3" />
         <XAxis dataKey="label" tick={tick} />
         <YAxis tick={tick} allowDecimals={false} width={dense ? 28 : undefined} />
-        <Tooltip
-          contentStyle={{ background: tc.surface, border: `1px solid ${tc.border}`, borderRadius: 8 }}
-        />
-        <Area type="monotone" dataKey="success" stackId="1" stroke={tc.success} fill={`${tc.success}55`} />
-        <Area type="monotone" dataKey="failure" stackId="1" stroke={tc.danger} fill={`${tc.danger}55`} />
+        <Tooltip {...chartTooltipProps(tc)} />
+        <Area type="monotone" dataKey="success" stackId="1" stroke={tc.success} fill={`${tc.success}${tc.areaFillOpacity}`} />
+        <Area type="monotone" dataKey="failure" stackId="1" stroke={tc.danger} fill={`${tc.danger}${tc.areaFillOpacity}`} />
       </AreaChart>
     </ChartArea>
   );
@@ -646,7 +635,7 @@ export function McpBarChart({ data }) {
   return (
     <ChartArea>
       <BarChart data={data} layout="vertical" margin={{ left: dense ? 8 : 20 }}>
-        <CartesianGrid stroke={tc.border} strokeDasharray="3 3" horizontal={false} />
+        <CartesianGrid stroke={tc.grid} strokeDasharray="3 3" horizontal={false} />
         <XAxis type="number" tick={tick} allowDecimals={false} />
         <YAxis
           type="category"
@@ -654,32 +643,32 @@ export function McpBarChart({ data }) {
           width={dense ? 56 : 80}
           tick={tick}
         />
-        <Tooltip
-          contentStyle={{ background: tc.surface, border: `1px solid ${tc.border}`, borderRadius: 8 }}
-        />
+        <Tooltip {...chartTooltipProps(tc)} />
         <Bar dataKey="count" fill={tc.colors[4]} radius={[0, 4, 4, 0]} />
       </BarChart>
     </ChartArea>
   );
 }
 
-const EVENT_TYPE_STYLES = {
-  sessionStart: { symbol: '▶', color: 'text-sky-400', label: 'session-start' },
-  stop: { symbol: '■', color: 'text-slate-400', label: 'stop' },
-  afterAgentThought: { symbol: '◉', color: 'text-violet-400', label: 'thought' },
-  afterFileEdit: { symbol: '✎', color: 'text-emerald-400', label: 'file-edit' },
-  afterTabFileEdit: { symbol: '✎', color: 'text-emerald-400', label: 'tab-edit' },
-  beforeShellExecution: { symbol: '$', color: 'text-amber-400', label: 'shell-before' },
-  afterShellExecution: { symbol: '$', color: 'text-amber-300', label: 'shell-after' },
-  beforeMCPExecution: { symbol: '⊞', color: 'text-cyan-400', label: 'mcp-before' },
-  afterMCPExecution: { symbol: '⊞', color: 'text-cyan-300', label: 'mcp-after' },
-  postToolUse: { symbol: '⚙', color: 'text-pink-400', label: 'tool-use' },
+const EVENT_TYPE_META = {
+  sessionStart: { symbol: '▶', label: 'session-start' },
+  stop: { symbol: '■', label: 'stop' },
+  afterAgentThought: { symbol: '◉', label: 'thought' },
+  afterFileEdit: { symbol: '✎', label: 'file-edit' },
+  afterTabFileEdit: { symbol: '✎', label: 'tab-edit' },
+  beforeShellExecution: { symbol: '$', label: 'shell-before' },
+  afterShellExecution: { symbol: '$', label: 'shell-after' },
+  beforeMCPExecution: { symbol: '⊞', label: 'mcp-before' },
+  afterMCPExecution: { symbol: '⊞', label: 'mcp-after' },
+  postToolUse: { symbol: '⚙', label: 'tool-use' },
 };
 
-const DEFAULT_EVENT_STYLE = { symbol: '·', color: 'text-slate-400', label: 'unknown' };
+const DEFAULT_EVENT_META = { symbol: '·', label: 'unknown' };
 
-function getEventStyle(hookEvent) {
-  return EVENT_TYPE_STYLES[hookEvent] ?? DEFAULT_EVENT_STYLE;
+function getEventStyle(hookEvent, tc) {
+  const meta = EVENT_TYPE_META[hookEvent] ?? DEFAULT_EVENT_META;
+  const color = tc.events[hookEvent] ?? tc.events.default;
+  return { ...meta, color };
 }
 
 function abbreviateModel(model) {
@@ -693,6 +682,8 @@ function abbreviateModel(model) {
 
 export function Events({ events = [] }) {
   const mode = useLayoutMode();
+  const theme = useTheme();
+  const tc = THEME_COLORS[theme];
   const dense = mode === 'dense';
   const expanded = mode === 'expanded';
   const listRef = useRef(null);
@@ -721,7 +712,7 @@ export function Events({ events = [] }) {
   return (
     <div ref={listRef} className={`rounded-lg border border-border bg-panel ${padding} ${height} overflow-y-auto`}>
       {events.map((event) => {
-        const style = getEventStyle(event.hook_event);
+        const style = getEventStyle(event.hook_event, tc);
         const time = event.time ?? '';
         const detail = event.detail ?? event.text ?? '';
         const model = event.model ? abbreviateModel(event.model) : '';
@@ -732,9 +723,11 @@ export function Events({ events = [] }) {
             style={{ gridTemplateColumns: gridCols }}
           >
             <span className="text-fg-muted tabular-nums">{time}</span>
-            <span className={style.color}>{style.symbol}</span>
-            <span className={`${style.color} opacity-75 truncate`}>{event.hook_event}</span>
-            <span className="text-red-400 font-semibold">
+            <span style={{ color: style.color }}>{style.symbol}</span>
+            <span className="truncate opacity-75" style={{ color: style.color }}>
+              {event.hook_event}
+            </span>
+            <span className="font-semibold" style={{ color: tc.danger }}>
               {event.verdict ? 'DENY' : ''}
             </span>
             <span className="text-fg-muted truncate">{model}</span>
@@ -758,12 +751,10 @@ export function CodeChurnLine({ data }) {
   return (
     <ChartArea>
       <LineChart data={chartData}>
-        <CartesianGrid stroke={tc.border} strokeDasharray="3 3" />
+        <CartesianGrid stroke={tc.grid} strokeDasharray="3 3" />
         <XAxis dataKey="label" tick={tick} />
         <YAxis tick={tick} width={dense ? 28 : undefined} />
-        <Tooltip
-          contentStyle={{ background: tc.surface, border: `1px solid ${tc.border}`, borderRadius: 8 }}
-        />
+        <Tooltip {...chartTooltipProps(tc)} />
         <Line type="monotone" dataKey="added" stroke={tc.success} strokeWidth={2} dot={chartData.length === 1 ? { r: 3, fill: tc.success } : false} name="Added" />
         <Line type="monotone" dataKey="removed" stroke={tc.danger} strokeWidth={2} dot={chartData.length === 1 ? { r: 3, fill: tc.danger } : false} name="Removed" />
         <Line type="monotone" dataKey="net" stroke={tc.accent} strokeWidth={2} strokeDasharray="4 4" dot={chartData.length === 1 ? { r: 3, fill: tc.accent } : false} name="Net" />
@@ -783,7 +774,7 @@ export function SessionScatter({ data }) {
   return (
     <ChartArea>
       <ScatterChart>
-        <CartesianGrid stroke={tc.border} strokeDasharray="3 3" />
+        <CartesianGrid stroke={tc.grid} strokeDasharray="3 3" />
         <XAxis
           type="number"
           dataKey="timestamp"
@@ -802,7 +793,7 @@ export function SessionScatter({ data }) {
         />
         <ZAxis range={dense ? [30, 100] : [60, 200]} />
         <Tooltip
-          contentStyle={{ background: tc.surface, border: `1px solid ${tc.border}`, borderRadius: 8 }}
+          {...chartTooltipProps(tc)}
           formatter={(val, name) => [name === 'Duration' ? `${val} min` : formatTime(val), name]}
         />
         <Scatter data={data} fill={tc.colors[5]} />
@@ -920,7 +911,7 @@ const BG_METRICS = [
 export function BackgroundView({ metrics, connected, onOpenSettings }) {
   return (
     <div className="flex h-screen flex-col bg-bg">
-      <div className="window-drag flex shrink-0 items-center justify-between border-b border-overlay/10 px-3 pb-2 pt-8">
+      <div className="window-drag flex shrink-0 items-center justify-between border-b border-overlay/10 px-2 pb-2 pt-8">
         <span className="bg-gradient-to-r from-amber-300 via-orange-400 to-rose-400 bg-clip-text text-xs font-bold tracking-tight text-transparent">
           catadio
         </span>
@@ -945,7 +936,7 @@ export function BackgroundView({ metrics, connected, onOpenSettings }) {
           )}
         </div>
       </div>
-      <ul className="min-h-0 flex-1 divide-y divide-overlay/5 overflow-y-auto px-1 py-0.5">
+      <ul className="grid min-h-0 flex-1 grid-cols-2 gap-x-1 overflow-y-auto px-1 py-0.5 content-start">
         {BG_METRICS.map(({ abbr, full, getValue, format }) => {
           const raw = getValue(metrics);
           const display = format(raw);
@@ -953,12 +944,12 @@ export function BackgroundView({ metrics, connected, onOpenSettings }) {
             <li
               key={abbr}
               title={full}
-              className="group flex items-center justify-between px-2 py-2 transition-colors hover:bg-overlay/5"
+              className="group flex items-baseline gap-1 px-1 py-1.5 transition-colors hover:bg-overlay/5"
             >
-              <span className="text-[11px] font-medium text-fg-muted group-hover:text-fg-soft">
+              <span className="w-8 shrink-0 text-[10px] font-medium text-accent group-hover:text-orange-300">
                 {abbr}
               </span>
-              <span className="font-mono text-sm font-semibold tabular-nums text-fg">
+              <span className="min-w-0 text-left font-mono text-[11px] font-semibold tabular-nums text-accent group-hover:text-orange-300">
                 {display}
               </span>
             </li>

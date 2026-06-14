@@ -511,6 +511,7 @@ export default function App() {
   const handleDensityModeChange = useCallback((value) => {
     setDensityMode(value);
     saveDensityMode(value);
+    setSettingsOpen(false);
   }, []);
 
   const handleTrendWindowMinChange = useCallback((value) => {

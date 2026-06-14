@@ -8,6 +8,7 @@ export default {
         panel: 'rgb(var(--panel) / <alpha-value>)',
         surface: 'rgb(var(--surface) / <alpha-value>)',
         border: 'rgb(var(--border) / <alpha-value>)',
+        grid: 'rgb(var(--grid) / <alpha-value>)',
         accent: 'rgb(var(--accent) / <alpha-value>)',
         fg: 'rgb(var(--fg) / <alpha-value>)',
         'fg-soft': 'rgb(var(--fg-soft) / <alpha-value>)',
