@@ -51,16 +51,19 @@ function chartTick(dense) {
   return { fill: '#94a3b8', fontSize: dense ? 8 : 10 };
 }
 
-export function DensityToggle({ checked, onChange, className = '' }) {
+export function DensitySelect({ value, onChange, className = '' }) {
   return (
     <label className={`flex cursor-pointer select-none items-center gap-2 text-sm text-slate-400 ${className}`}>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-3.5 w-3.5 rounded-md border-border bg-panel text-accent focus:ring-accent/50"
-      />
-      High density
+      <span className="shrink-0">Information Density</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded-md border border-border bg-panel px-2 py-1 text-sm text-slate-200 focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+      >
+        <option value="low">Low Density</option>
+        <option value="high">High Density</option>
+        <option value="background">Background</option>
+      </select>
     </label>
   );
 }
@@ -835,6 +838,109 @@ export function HumanInterventions({ data }) {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+const BG_METRICS = [
+  {
+    abbr: 'Evts',
+    full: 'Recent Events (1h)',
+    getValue: (m) => m.totals.recentEvents,
+    format: (v) => String(v),
+  },
+  {
+    abbr: 'Sess',
+    full: 'Sessions (1h)',
+    getValue: (m) => m.totals.sessions,
+    format: (v) => String(v),
+  },
+  {
+    abbr: 'Think',
+    full: 'Avg Think Time',
+    getValue: (m) => m.thinkTimeSummary.avgSec,
+    format: (v) => `${v.toFixed(1)}s`,
+  },
+  {
+    abbr: 'Shell',
+    full: 'Shell Success Rate',
+    getValue: (m) => m.shellOutcomeSummary.rate,
+    format: (v) => `${Math.round(v * 100)}%`,
+  },
+  {
+    abbr: 'Churn',
+    full: 'Code Churn (net lines)',
+    getValue: (m) => m.codeChurnSummary.net,
+    format: (v) => (v >= 0 ? `+${v}` : String(v)),
+  },
+  {
+    abbr: 'Sec',
+    full: 'Security Block Rate',
+    getValue: (m) => m.securityBlockRate.rate,
+    format: (v) => `${Math.round(v * 100)}%`,
+  },
+  {
+    abbr: 'HIL',
+    full: 'Human-in-the-Loop (1h)',
+    getValue: (m) => m.humanInterventions.total,
+    format: (v) => String(v),
+  },
+  {
+    abbr: 'MCP',
+    full: 'MCP Tool Calls',
+    getValue: (m) => m.mcpUsage.reduce((sum, e) => sum + (e.count ?? 0), 0),
+    format: (v) => String(v),
+  },
+];
+
+export function BackgroundView({ metrics, connected, onOpenSettings }) {
+  return (
+    <div className="flex h-screen flex-col bg-[#0b0c10]">
+      <div className="window-drag flex shrink-0 items-center justify-between border-b border-white/10 px-3 pb-2 pt-8">
+        <span className="bg-gradient-to-r from-amber-300 via-orange-400 to-rose-400 bg-clip-text text-xs font-bold tracking-tight text-transparent">
+          catadio
+        </span>
+        <div className="window-no-drag flex items-center gap-2">
+          <span className="flex items-center gap-1.5">
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${connected ? 'animate-pulse bg-emerald-400' : 'bg-red-500'}`}
+            />
+            <span className="text-[10px] text-slate-500">{connected ? 'live' : 'reconnecting'}</span>
+          </span>
+          {onOpenSettings && (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              aria-label="Open settings"
+              className="flex h-5 w-5 items-center justify-center rounded text-slate-600 hover:bg-white/10 hover:text-slate-300"
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+                <path fillRule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.331 1.652a6.993 6.993 0 011.929 1.115l1.598-.54a1 1 0 011.186.447l1.18 2.044a1 1 0 01-.205 1.251l-1.267 1.113a7.047 7.047 0 010 2.228l1.267 1.113a1 1 0 01.205 1.251l-1.18 2.044a1 1 0 01-1.186.447l-1.598-.54a6.993 6.993 0 01-1.929 1.115l-.33 1.652a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.331-1.652a6.993 6.993 0 01-1.929-1.115l-1.598.54a1 1 0 01-1.186-.447l-1.18-2.044a1 1 0 01.205-1.251l1.267-1.113a7.047 7.047 0 010-2.228L1.821 7.773a1 1 0 01-.205-1.251l1.18-2.044a1 1 0 011.186-.447l1.598.54A6.993 6.993 0 017.51 3.456l.33-1.652zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+      <ul className="min-h-0 flex-1 divide-y divide-white/5 overflow-y-auto px-1 py-0.5">
+        {BG_METRICS.map(({ abbr, full, getValue, format }) => {
+          const raw = getValue(metrics);
+          const display = format(raw);
+          return (
+            <li
+              key={abbr}
+              title={full}
+              className="group flex items-center justify-between px-2 py-2 transition-colors hover:bg-white/5"
+            >
+              <span className="text-[11px] font-medium text-slate-500 group-hover:text-slate-300">
+                {abbr}
+              </span>
+              <span className="font-mono text-sm font-semibold tabular-nums text-slate-200">
+                {display}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { DensityToggle } from './Charts.jsx';
-
 function MenuModal({ onSettings, onOpenProject, onClose }) {
   const overlayRef = useRef(null);
 
@@ -166,7 +164,7 @@ function ProjectPickerModal({ project, recent, onOpen, onSwitch, onClose }) {
   );
 }
 
-export function ProjectBar({ project, onOpen, onSwitch, connected, highDensity, onHighDensityChange, onSettingsOpen }) {
+export function ProjectBar({ project, onOpen, onSwitch, connected, onSettingsOpen }) {
   const [recent, setRecent] = useState([]);
   const [hookStatus, setHookStatus] = useState(null);
   const [installing, setInstalling] = useState(false);
@@ -271,7 +269,6 @@ export function ProjectBar({ project, onOpen, onSwitch, connected, highDensity, 
 
           {/* Right: controls */}
           <div className="window-no-drag flex shrink-0 items-center gap-3 text-sm">
-            <DensityToggle checked={highDensity} onChange={onHighDensityChange} />
             {project && (
               <button
                 type="button"

@@ -37,4 +37,10 @@ contextBridge.exposeInMainWorld('dashboard', {
 
   /** Quit the application. */
   quit: () => ipcRenderer.invoke('app:quit'),
+
+  /**
+   * Enter or exit background mode, which resizes the window to a compact
+   * size (~280px wide) or restores it to the normal dashboard size.
+   */
+  setBackgroundMode: (enabled) => ipcRenderer.invoke('window:setBackgroundMode', enabled),
 });

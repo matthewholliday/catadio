@@ -30,8 +30,9 @@ import {
   ShellOutcomeGauge,
   ThinkTimeGauge,
   ThinkTimeLine,
+  BackgroundView,
   DensityProvider,
-  DensityToggle,
+  DensitySelect,
   ExpandedProvider,
 } from './components/Charts.jsx';
 import { ProjectBar } from './components/ProjectBar.jsx';
@@ -53,8 +54,10 @@ const DEFAULT_PANEL_ORDER = [
 ];
 
 const PANEL_ORDER_KEY = 'panel-order';
-const HIGH_DENSITY_KEY = 'high-density';
+const DENSITY_MODE_KEY = 'density-mode';
 const TREND_WINDOW_KEY = 'trend-window-minutes';
+
+const VALID_DENSITY_MODES = ['low', 'high', 'background'];
 const DEFAULT_TREND_WINDOW_MIN = 0.5;
 
 const METRIC_TOOLTIPS = {
@@ -86,17 +89,21 @@ const METRIC_TOOLTIPS = {
     'Scrolling feed of recent hook events from the last hour. Each event type uses a distinct color and symbol: thinking, file edits, shell commands, MCP calls, tool use, and session lifecycle.',
 };
 
-function readHighDensity() {
+function readDensityMode() {
   try {
-    return localStorage.getItem(HIGH_DENSITY_KEY) === 'true';
+    const stored = localStorage.getItem(DENSITY_MODE_KEY);
+    if (stored && VALID_DENSITY_MODES.includes(stored)) return stored;
+    // Migrate legacy boolean 'high-density' key
+    if (localStorage.getItem('high-density') === 'true') return 'high';
   } catch {
-    return false;
+    // Ignore storage errors
   }
+  return 'low';
 }
 
-function saveHighDensity(value) {
+function saveDensityMode(value) {
   try {
-    localStorage.setItem(HIGH_DENSITY_KEY, String(value));
+    localStorage.setItem(DENSITY_MODE_KEY, value);
   } catch {
     // Ignore storage errors
   }
@@ -222,11 +229,30 @@ function ExpandedPanelModal({ title, subtitle, tooltip, onClose, children }) {
   );
 }
 
+function SettingsInfoTooltip({ text }) {
+  return (
+    <div className="group relative inline-flex items-center">
+      <svg
+        viewBox="0 0 16 16"
+        fill="currentColor"
+        className="h-3.5 w-3.5 cursor-default text-slate-600 group-hover:text-slate-400"
+        aria-hidden="true"
+      >
+        <path fillRule="evenodd" d="M8 15A7 7 0 108 1a7 7 0 000 14zm0-10.5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 018 4.5zm0-1.25a.875.875 0 100-1.75.875.875 0 000 1.75z" clipRule="evenodd" />
+      </svg>
+      <div className="pointer-events-none invisible absolute bottom-full left-1/2 z-10 mb-2 w-56 -translate-x-1/2 rounded-lg border border-border bg-panel px-3 py-2 text-xs leading-relaxed text-slate-400 shadow-xl group-hover:visible">
+        {text}
+        <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-border" />
+      </div>
+    </div>
+  );
+}
+
 function SettingsModal({
   onClose,
   onResetLayout,
-  highDensity,
-  onHighDensityChange,
+  densityMode,
+  onDensityModeChange,
   trendWindowMin,
   onTrendWindowMinChange,
 }) {
@@ -242,10 +268,10 @@ function SettingsModal({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[min(520px,85vh)] w-full max-w-sm flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-2xl"
+        className="flex max-h-[min(400px,85vh)] w-full max-w-sm flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
           <h2 className="text-base font-semibold text-white">Settings</h2>
           <button
             type="button"
@@ -259,55 +285,54 @@ function SettingsModal({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-          <div className="space-y-4">
-          <div className="rounded-lg border border-border p-4">
-            <h3 className="mb-1 text-sm font-medium text-slate-200">Display</h3>
-            <p className="mb-3 text-xs text-slate-500">
-              Pack more panels on screen with smaller charts and tighter spacing.
-            </p>
-            <DensityToggle checked={highDensity} onChange={onHighDensityChange} />
-          </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
+          <div className="space-y-2">
+            <div className="rounded-lg border border-border p-3">
+              <div className="mb-2 flex items-center gap-1.5">
+                <h3 className="text-sm font-medium text-slate-200">Display</h3>
+                <SettingsInfoTooltip text="Choose how much information is shown. High Density packs more panels on screen; Background reduces to a compact floating readout." />
+              </div>
+              <DensitySelect value={densityMode} onChange={onDensityModeChange} />
+            </div>
 
-          <div className="rounded-lg border border-border p-4">
-            <h3 className="mb-1 text-sm font-medium text-slate-200">Trend panels</h3>
-            <p className="mb-3 text-xs text-slate-500">
-              How far back the think time, shell outcome, and code churn trend gauges look when
-              computing values and direction arrows.
-            </p>
-            <label className="flex items-center gap-2 text-sm text-slate-300">
-              <span className="shrink-0">Last</span>
-              <input
-                type="number"
-                min="0.1"
-                max="60"
-                step="0.1"
-                value={trendWindowMin}
-                onChange={(e) => {
-                  const parsed = Number(e.target.value);
-                  if (Number.isFinite(parsed) && parsed > 0) {
-                    onTrendWindowMinChange(Math.min(parsed, 60));
-                  }
-                }}
-                className="w-24 rounded-md border border-border bg-panel px-2 py-1 text-sm text-slate-100 focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
-              />
-              <span className="text-slate-500">minutes</span>
-            </label>
-          </div>
+            <div className="rounded-lg border border-border p-3">
+              <div className="mb-2 flex items-center gap-1.5">
+                <h3 className="text-sm font-medium text-slate-200">Trend panels</h3>
+                <SettingsInfoTooltip text="How far back the think time, shell outcome, and code churn trend gauges look when computing values and direction arrows." />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <span className="shrink-0">Last</span>
+                <input
+                  type="number"
+                  min="0.1"
+                  max="60"
+                  step="0.1"
+                  value={trendWindowMin}
+                  onChange={(e) => {
+                    const parsed = Number(e.target.value);
+                    if (Number.isFinite(parsed) && parsed > 0) {
+                      onTrendWindowMinChange(Math.min(parsed, 60));
+                    }
+                  }}
+                  className="w-24 rounded-md border border-border bg-panel px-2 py-1 text-sm text-slate-100 focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                />
+                <span className="text-slate-500">minutes</span>
+              </label>
+            </div>
 
-          <div className="rounded-lg border border-border p-4">
-            <h3 className="mb-1 text-sm font-medium text-slate-200">Layout</h3>
-            <p className="mb-3 text-xs text-slate-500">
-              Resets the panel order to the original default arrangement.
-            </p>
-            <button
-              type="button"
-              onClick={onResetLayout}
-              className="rounded-md bg-accent/20 px-3 py-1.5 text-sm font-medium text-accent hover:bg-accent/30"
-            >
-              Reset layout
-            </button>
-          </div>
+            <div className="rounded-lg border border-border p-3">
+              <div className="mb-2 flex items-center gap-1.5">
+                <h3 className="text-sm font-medium text-slate-200">Layout</h3>
+                <SettingsInfoTooltip text="Resets the panel order to the original default arrangement." />
+              </div>
+              <button
+                type="button"
+                onClick={onResetLayout}
+                className="rounded-md bg-accent/20 px-3 py-1.5 text-sm font-medium text-accent hover:bg-accent/30"
+              >
+                Reset layout
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -320,12 +345,21 @@ export default function App() {
   const [panelOrder, setPanelOrder] = useState(readPanelOrder);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [expandedPanelId, setExpandedPanelId] = useState(null);
-  const [highDensity, setHighDensity] = useState(readHighDensity);
+  const [densityMode, setDensityMode] = useState(readDensityMode);
   const [trendWindowMin, setTrendWindowMin] = useState(readTrendWindowMin);
+
+  const highDensity = densityMode === 'high';
+  const isBackground = densityMode === 'background';
 
   const isElectron = typeof window.dashboard !== 'undefined';
   const projectId = isElectron ? (project?.id ?? null) : 'default';
   const { metrics, connected } = useMetrics(projectId, trendWindowMin);
+
+  // Resize the Electron window when entering/leaving background mode.
+  useEffect(() => {
+    if (!isElectron) return;
+    window.dashboard.setBackgroundMode(isBackground);
+  }, [isElectron, isBackground]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -370,9 +404,9 @@ export default function App() {
     setSettingsOpen(false);
   }, []);
 
-  const handleHighDensityChange = useCallback((value) => {
-    setHighDensity(value);
-    saveHighDensity(value);
+  const handleDensityModeChange = useCallback((value) => {
+    setDensityMode(value);
+    saveDensityMode(value);
   }, []);
 
   const handleTrendWindowMinChange = useCallback((value) => {
@@ -492,6 +526,28 @@ export default function App() {
 
   const expandedPanel = expandedPanelId ? panels[expandedPanelId] : null;
 
+  if (isBackground) {
+    return (
+      <>
+        <BackgroundView
+          metrics={metrics}
+          connected={connected}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+        {settingsOpen && (
+          <SettingsModal
+            onClose={() => setSettingsOpen(false)}
+            onResetLayout={handleResetLayout}
+            densityMode={densityMode}
+            onDensityModeChange={handleDensityModeChange}
+            trendWindowMin={trendWindowMin}
+            onTrendWindowMinChange={handleTrendWindowMinChange}
+          />
+        )}
+      </>
+    );
+  }
+
   return (
     <DensityProvider dense={highDensity}>
       <div className="min-h-screen bg-[#0b0c10]">
@@ -500,8 +556,6 @@ export default function App() {
         onOpen={handleOpen}
         onSwitch={handleSwitch}
         connected={connected}
-        highDensity={highDensity}
-        onHighDensityChange={handleHighDensityChange}
         onSettingsOpen={() => setSettingsOpen(true)}
       />
 
@@ -512,7 +566,6 @@ export default function App() {
               catadio
             </h1>
             <div className="flex items-center gap-4 text-sm">
-              <DensityToggle checked={highDensity} onChange={handleHighDensityChange} />
               <div className="hidden sm:block text-right">
                 <p className="text-slate-400">
                   {metrics.totals.recentEvents} events / {metrics.totals.sessions} sessions (1h)
@@ -607,8 +660,8 @@ export default function App() {
         <SettingsModal
           onClose={() => setSettingsOpen(false)}
           onResetLayout={handleResetLayout}
-          highDensity={highDensity}
-          onHighDensityChange={handleHighDensityChange}
+          densityMode={densityMode}
+          onDensityModeChange={handleDensityModeChange}
           trendWindowMin={trendWindowMin}
           onTrendWindowMinChange={handleTrendWindowMinChange}
         />

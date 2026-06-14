@@ -271,6 +271,20 @@ function registerIpcHandlers() {
     shell.openExternal(url);
   });
 
+  // --- window:setBackgroundMode --------------------------------------------
+  ipcMain.handle('window:setBackgroundMode', (_event, enabled) => {
+    if (!mainWindow) return;
+    if (enabled) {
+      mainWindow.setMinimumSize(280, 200);
+      mainWindow.setSize(280, 420);
+      mainWindow.setResizable(false);
+    } else {
+      mainWindow.setResizable(true);
+      mainWindow.setMinimumSize(800, 600);
+      mainWindow.setSize(1400, 900);
+    }
+  });
+
   // --- app:quit ------------------------------------------------------------
   ipcMain.handle('app:quit', () => {
     app.quit();
