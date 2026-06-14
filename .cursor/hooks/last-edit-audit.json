@@ -1,5 +1,5 @@
 {
-  "timestamp": 1781444113.7462358,
+  "timestamp": 1781444303.2169302,
   "hook_name": "postToolUse",
   "parse_error": null,
   "context_keys": [
@@ -20,7 +20,7 @@
     "user_email",
     "workspace_roots"
   ],
-  "file_path": "/Users/matthew/agent-dashboard/web/src/useMetrics.js",
+  "file_path": "/Users/matthew/agent-dashboard/package.json",
   "tool_name": "Write",
   "edits_count": 1,
   "edit_keys": [
@@ -32,7 +32,7 @@
   "has_old_string": false,
   "has_new_string": true,
   "old_string_len": 0,
-  "new_string_len": 3836,
-  "lines_added": 131,
+  "new_string_len": 1620,
+  "lines_added": 56,
   "lines_removed": null
 }
