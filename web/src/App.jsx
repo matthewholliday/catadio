@@ -502,24 +502,8 @@ export default function App() {
         connected={connected}
         highDensity={highDensity}
         onHighDensityChange={handleHighDensityChange}
+        onSettingsOpen={() => setSettingsOpen(true)}
       />
-
-      <button
-        type="button"
-        onClick={() => setSettingsOpen(true)}
-        aria-label="Open settings"
-        className={`fixed left-3 z-20 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-accent/30 bg-accent/15 text-accent shadow-lg shadow-black/20 transition hover:border-accent/50 hover:bg-accent/25 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-          isElectron ? 'top-16' : 'top-3'
-        }`}
-      >
-        <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
-          <path
-            fillRule="evenodd"
-            d="M8.34 1.804A1 1 0 019.32 1h1.36a1 1 0 01.98.804l.295 1.473c.497.144.97.337 1.412.575l1.35-1.35a1 1 0 011.414 0l.964.964a1 1 0 010 1.414l-1.35 1.35c.238.442.431.915.575 1.412l1.473.296a1 1 0 01.804.98v1.361a1 1 0 01-.804.98l-1.473.296a6.067 6.067 0 01-.575 1.412l1.35 1.35a1 1 0 010 1.414l-.964.964a1 1 0 01-1.414 0l-1.35-1.35a6.052 6.052 0 01-1.412.575l-.296 1.473a1 1 0 01-.98.804H9.32a1 1 0 01-.98-.804l-.296-1.473a6.067 6.067 0 01-1.412-.575l-1.35 1.35a1 1 0 01-1.414 0l-.964-.964a1 1 0 010-1.414l1.35-1.35a6.052 6.052 0 01-.575-1.412L1.804 10.68a1 1 0 01-.804-.98V8.34a1 1 0 01.804-.98l1.473-.296c.144-.497.337-.97.575-1.412l-1.35-1.35a1 1 0 010-1.414l.964-.964a1 1 0 011.414 0l1.35 1.35c.442-.238.915-.431 1.412-.575l.296-1.473zM10 13a3 3 0 100-6 3 3 0 000 6z"
-            clipRule="evenodd"
-          />
-        </svg>
-      </button>
 
       {!isElectron && (
         <header className="sticky top-0 z-10 border-b border-border bg-panel/90 backdrop-blur">
@@ -538,6 +522,20 @@ export default function App() {
                 />
                 <span className="text-slate-400">{connected ? 'Live' : 'Reconnecting…'}</span>
               </div>
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(true)}
+                aria-label="Open settings"
+                className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-accent/30 bg-accent/15 text-accent transition hover:border-accent/50 hover:bg-accent/25 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                  <path
+                    fillRule="evenodd"
+                    d="M8.34 1.804A1 1 0 019.32 1h1.36a1 1 0 01.98.804l.295 1.473c.497.144.97.337 1.412.575l1.35-1.35a1 1 0 011.414 0l.964.964a1 1 0 010 1.414l-1.35 1.35c.238.442.431.915.575 1.412l1.473.296a1 1 0 01.804.98v1.361a1 1 0 01-.804.98l-1.473.296a6.067 6.067 0 01-.575 1.412l1.35 1.35a1 1 0 010 1.414l-.964.964a1 1 0 01-1.414 0l-1.35-1.35a6.052 6.052 0 01-1.412.575l-.296 1.473a1 1 0 01-.98.804H9.32a1 1 0 01-.98-.804l-.296-1.473a6.067 6.067 0 01-1.412-.575l-1.35 1.35a1 1 0 01-1.414 0l-.964-.964a1 1 0 010-1.414l1.35-1.35a6.052 6.052 0 01-.575-1.412L1.804 10.68a1 1 0 01-.804-.98V8.34a1 1 0 01.804-.98l1.473-.296c.144-.497.337-.97.575-1.412l-1.35-1.35a1 1 0 010-1.414l.964-.964a1 1 0 011.414 0l1.35 1.35c.442-.238.915-.431 1.412-.575l.296-1.473zM10 13a3 3 0 100-6 3 3 0 000 6z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
             </div>
           </div>
         </header>

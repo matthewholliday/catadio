@@ -743,6 +743,7 @@ export function SessionScatter({ data }) {
         <XAxis
           type="number"
           dataKey="timestamp"
+          domain={['dataMin', 'dataMax']}
           name="Time"
           tick={tick}
           tickFormatter={formatTime}
