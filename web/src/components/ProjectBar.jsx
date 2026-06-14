@@ -224,7 +224,7 @@ export function ProjectBar({ project, onOpen, onSwitch, connected, highDensity, 
 
   return (
     <>
-      <div className={`border-b border-border bg-[#0f1117] ${isElectron && isMac ? 'pt-7' : ''}`}>
+      <div className={`window-drag border-b border-border bg-[#0f1117] ${isElectron && isMac ? 'pt-7' : ''}`}>
         <div className="relative mx-auto flex max-w-[1600px] items-center justify-between gap-3 px-6 pt-3 pb-5">
 
           {/* Left: app title */}
@@ -240,7 +240,7 @@ export function ProjectBar({ project, onOpen, onSwitch, connected, highDensity, 
               type="button"
               onClick={() => setPickerOpen(true)}
               aria-haspopup="dialog"
-              className="pointer-events-auto group flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-accent/40 bg-accent/10 px-3 py-1.5 text-left shadow-[0_0_20px_rgba(99,102,241,0.15)] transition hover:border-accent/60 hover:bg-accent/20"
+              className="window-no-drag pointer-events-auto group flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-accent/40 bg-accent/10 px-3 py-1.5 text-left shadow-[0_0_20px_rgba(99,102,241,0.15)] transition hover:border-accent/60 hover:bg-accent/20"
             >
               {project ? (
                 <p
@@ -270,7 +270,7 @@ export function ProjectBar({ project, onOpen, onSwitch, connected, highDensity, 
           </div>
 
           {/* Right: controls */}
-          <div className="flex shrink-0 items-center gap-3 text-sm">
+          <div className="window-no-drag flex shrink-0 items-center gap-3 text-sm">
             <DensityToggle checked={highDensity} onChange={onHighDensityChange} />
             {project && (
               <button

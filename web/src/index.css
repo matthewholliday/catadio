@@ -7,6 +7,15 @@ body {
   min-height: 100vh;
 }
 
+/* Electron frameless title bar: drag the window from marked regions */
+.window-drag {
+  -webkit-app-region: drag;
+}
+
+.window-no-drag {
+  -webkit-app-region: no-drag;
+}
+
 /* Firefox */
 * {
   scrollbar-width: thin;
