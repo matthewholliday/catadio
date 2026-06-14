@@ -46,7 +46,7 @@ function MenuModal({ onSettings, onOpenProject, onClose }) {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-start justify-end bg-black/50 backdrop-blur-sm pt-14 pr-6"
+      className="window-no-drag fixed inset-0 z-50 flex items-start justify-end bg-black/50 backdrop-blur-sm pt-14 pr-6"
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
     >
       <div
@@ -99,7 +99,7 @@ function ProjectPickerModal({ project, recent, onOpen, onSwitch, onClose }) {
   return (
       <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm pt-14 px-6"
+      className="window-no-drag fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm pt-14 px-6"
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
     >
       <div
