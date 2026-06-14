@@ -122,7 +122,7 @@ async function startSession() {
   await post({
     ...baseFields(),
     hook_event: 'sessionStart',
-    context_details: { workspace_roots: ['/Users/matthew/agent-dashboard'] },
+    context_details: { workspace_roots: [process.env.SIMULATE_WORKSPACE ?? process.cwd()] },
   });
 }
 

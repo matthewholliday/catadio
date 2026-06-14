@@ -2,7 +2,7 @@
   "name": "agent-dashboard",
   "version": "1.0.0",
   "description": "Real-time Cursor agent observability dashboard",
-  "private": true,
+  "license": "MIT",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {

@@ -3,48 +3,48 @@
   "hooks": {
     "sessionStart": [
       {
-        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry?project=ee37addd-43ee-41e4-9f95-ee8288098b3f python3 .cursor/hooks/dashboard_telemetry.py sessionStart"
+        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 .cursor/hooks/dashboard_telemetry.py sessionStart"
       }
     ],
     "beforeShellExecution": [
       {
-        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry?project=ee37addd-43ee-41e4-9f95-ee8288098b3f python3 .cursor/hooks/dashboard_telemetry.py beforeShellExecution"
+        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 .cursor/hooks/dashboard_telemetry.py beforeShellExecution"
       }
     ],
     "afterShellExecution": [
       {
-        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry?project=ee37addd-43ee-41e4-9f95-ee8288098b3f python3 .cursor/hooks/dashboard_telemetry.py afterShellExecution"
+        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 .cursor/hooks/dashboard_telemetry.py afterShellExecution"
       }
     ],
     "afterFileEdit": [
       {
-        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry?project=ee37addd-43ee-41e4-9f95-ee8288098b3f python3 .cursor/hooks/dashboard_telemetry.py afterFileEdit"
+        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 .cursor/hooks/dashboard_telemetry.py afterFileEdit"
       }
     ],
     "postToolUse": [
       {
-        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry?project=ee37addd-43ee-41e4-9f95-ee8288098b3f python3 .cursor/hooks/dashboard_telemetry.py postToolUse",
+        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 .cursor/hooks/dashboard_telemetry.py postToolUse",
         "matcher": "Write|StrReplace|ApplyPatch|EditNotebook"
       }
     ],
     "afterAgentThought": [
       {
-        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry?project=ee37addd-43ee-41e4-9f95-ee8288098b3f python3 .cursor/hooks/dashboard_telemetry.py afterAgentThought"
+        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 .cursor/hooks/dashboard_telemetry.py afterAgentThought"
       }
     ],
     "beforeMCPExecution": [
       {
-        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry?project=ee37addd-43ee-41e4-9f95-ee8288098b3f python3 .cursor/hooks/dashboard_telemetry.py beforeMCPExecution"
+        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 .cursor/hooks/dashboard_telemetry.py beforeMCPExecution"
       }
     ],
     "afterMCPExecution": [
       {
-        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry?project=ee37addd-43ee-41e4-9f95-ee8288098b3f python3 .cursor/hooks/dashboard_telemetry.py afterMCPExecution"
+        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 .cursor/hooks/dashboard_telemetry.py afterMCPExecution"
       }
     ],
     "stop": [
       {
-        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry?project=ee37addd-43ee-41e4-9f95-ee8288098b3f python3 .cursor/hooks/dashboard_telemetry.py stop"
+        "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 .cursor/hooks/dashboard_telemetry.py stop"
       }
     ]
   }

@@ -5,3 +5,4 @@ dist/
 .env
 testing_sandbox/
 .context/
+.cursor/hooks/last-edit-audit.json
