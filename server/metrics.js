@@ -364,7 +364,8 @@ function churnDedupKey(event) {
     toolInput.target_notebook ??
     '';
   return [
-    event.generation_id ?? event.conversation_id ?? 'unknown',
+    event.conversation_id ?? 'unknown',
+    event.generation_id ?? 'unknown',
     path,
     Math.floor(event.timestamp),
   ].join(':');

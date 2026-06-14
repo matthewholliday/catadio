@@ -505,7 +505,7 @@ export function ThinkTimeLine({ data }) {
         <Tooltip
           contentStyle={{ background: '#1a1d27', border: '1px solid #2a2f3d', borderRadius: 8 }}
         />
-        <Line type="monotone" dataKey="avgThinkSec" stroke="#6366f1" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="avgThinkSec" stroke="#6366f1" strokeWidth={2} dot={chartData.length === 1 ? { r: 3, fill: '#6366f1' } : false} />
       </LineChart>
     </ChartArea>
   );
@@ -722,9 +722,9 @@ export function CodeChurnLine({ data }) {
         <Tooltip
           contentStyle={{ background: '#1a1d27', border: '1px solid #2a2f3d', borderRadius: 8 }}
         />
-        <Line type="monotone" dataKey="added" stroke="#22c55e" strokeWidth={2} dot={false} name="Added" />
-        <Line type="monotone" dataKey="removed" stroke="#ef4444" strokeWidth={2} dot={false} name="Removed" />
-        <Line type="monotone" dataKey="net" stroke="#6366f1" strokeWidth={2} strokeDasharray="4 4" dot={false} name="Net" />
+        <Line type="monotone" dataKey="added" stroke="#22c55e" strokeWidth={2} dot={chartData.length === 1 ? { r: 3, fill: '#22c55e' } : false} name="Added" />
+        <Line type="monotone" dataKey="removed" stroke="#ef4444" strokeWidth={2} dot={chartData.length === 1 ? { r: 3, fill: '#ef4444' } : false} name="Removed" />
+        <Line type="monotone" dataKey="net" stroke="#6366f1" strokeWidth={2} strokeDasharray="4 4" dot={chartData.length === 1 ? { r: 3, fill: '#6366f1' } : false} name="Net" />
       </LineChart>
     </ChartArea>
   );

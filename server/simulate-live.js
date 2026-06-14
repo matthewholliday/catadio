@@ -6,8 +6,30 @@
  * Run: npm run simulate
  */
 
+import { homedir } from 'os';
+import { join } from 'path';
+import { readFileSync } from 'fs';
+
+function resolveProject() {
+  if (process.env.DASHBOARD_PROJECT) return process.env.DASHBOARD_PROJECT;
+  const dataPath = join(
+    homedir(),
+    'Library',
+    'Application Support',
+    'agent-dashboard',
+    'projects.json',
+  );
+  try {
+    const { activeProject } = JSON.parse(readFileSync(dataPath, 'utf8'));
+    if (activeProject?.id) return activeProject.id;
+  } catch {
+    // no saved project or not on macOS, fall back to default
+  }
+  return 'default';
+}
+
 const BASE = process.env.DASHBOARD_URL ?? 'http://localhost:3847/api/v1/telemetry';
-const PROJECT = process.env.DASHBOARD_PROJECT ?? 'default';
+const PROJECT = resolveProject();
 const CYCLE_MS = Number(process.env.SIMULATE_CYCLE_MS ?? 2500);
 const HEALTH_URL = BASE.replace(/\/api\/v1\/telemetry$/, '/api/health');
 
