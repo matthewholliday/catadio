@@ -526,14 +526,10 @@ export default function App() {
                 type="button"
                 onClick={() => setSettingsOpen(true)}
                 aria-label="Open settings"
-                className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-accent/30 bg-accent/15 text-accent transition hover:border-accent/50 hover:bg-accent/25 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-400 transition hover:border-white/20 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
               >
                 <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
-                  <path
-                    fillRule="evenodd"
-                    d="M8.34 1.804A1 1 0 019.32 1h1.36a1 1 0 01.98.804l.295 1.473c.497.144.97.337 1.412.575l1.35-1.35a1 1 0 011.414 0l.964.964a1 1 0 010 1.414l-1.35 1.35c.238.442.431.915.575 1.412l1.473.296a1 1 0 01.804.98v1.361a1 1 0 01-.804.98l-1.473.296a6.067 6.067 0 01-.575 1.412l1.35 1.35a1 1 0 010 1.414l-.964.964a1 1 0 01-1.414 0l-1.35-1.35a6.052 6.052 0 01-1.412.575l-.296 1.473a1 1 0 01-.98.804H9.32a1 1 0 01-.98-.804l-.296-1.473a6.067 6.067 0 01-1.412-.575l-1.35 1.35a1 1 0 01-1.414 0l-.964-.964a1 1 0 010-1.414l1.35-1.35a6.052 6.052 0 01-.575-1.412L1.804 10.68a1 1 0 01-.804-.98V8.34a1 1 0 01.804-.98l1.473-.296c.144-.497.337-.97.575-1.412l-1.35-1.35a1 1 0 010-1.414l.964-.964a1 1 0 011.414 0l1.35 1.35c.442-.238.915-.431 1.412-.575l.296-1.473zM10 13a3 3 0 100-6 3 3 0 000 6z"
-                    clipRule="evenodd"
-                  />
+                  <path fillRule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 5A.75.75 0 012.75 9h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 9.75zm0 5a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z" clipRule="evenodd" />
                 </svg>
               </button>
             </div>

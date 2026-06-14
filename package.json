@@ -16,6 +16,7 @@
     "seed": "node server/seed-demo.js",
     "simulate": "node server/simulate-live.js",
     "simulate:project": "bash scripts/simulate-project.sh",
+    "start:simulate": "bash scripts/run-electron-with-simulator.sh",
     "build": "npm run build --prefix web"
   },
   "dependencies": {

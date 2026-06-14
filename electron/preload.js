@@ -34,4 +34,7 @@ contextBridge.exposeInMainWorld('dashboard', {
    * Returns { success: boolean, status?, error? }.
    */
   setupHooks: (dirPath) => ipcRenderer.invoke('hooks:setup', dirPath),
+
+  /** Quit the application. */
+  quit: () => ipcRenderer.invoke('app:quit'),
 });

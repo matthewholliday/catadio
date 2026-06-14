@@ -270,6 +270,11 @@ function registerIpcHandlers() {
   ipcMain.handle('shell:openExternal', (_event, url) => {
     shell.openExternal(url);
   });
+
+  // --- app:quit ------------------------------------------------------------
+  ipcMain.handle('app:quit', () => {
+    app.quit();
+  });
 }
 
 // ---------------------------------------------------------------------------

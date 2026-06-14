@@ -43,6 +43,34 @@
         "focus": false
       },
       "problemMatcher": []
+    },
+    {
+      "label": "Run Electron App",
+      "type": "shell",
+      "command": "bash scripts/run-electron.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Electron App + Simulator",
+      "type": "shell",
+      "command": "bash scripts/run-electron-with-simulator.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      },
+      "problemMatcher": []
     }
   ]
 }
