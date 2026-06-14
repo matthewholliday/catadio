@@ -166,15 +166,19 @@ export function Panel({
   tooltip,
   children,
   className = '',
+  collapsible = false,
   defaultExpanded = true,
   dragHandleProps = null,
   onExpand = null,
 }) {
   const dense = useDensity();
   const contentId = useId();
-  const [expanded, setExpanded] = useState(() => readExpanded(title, defaultExpanded));
+  const [expanded, setExpanded] = useState(() =>
+    collapsible ? readExpanded(title, defaultExpanded) : true,
+  );
 
   const toggle = () => {
+    if (!collapsible) return;
     setExpanded((prev) => {
       const next = !prev;
       try {
@@ -212,38 +216,53 @@ export function Panel({
             </button>
           )}
           <div className="flex min-w-0 flex-1 items-start gap-1">
-            <button
-              type="button"
-              onClick={toggle}
-              aria-expanded={expanded}
-              aria-controls={contentId}
-              className="group flex min-w-0 flex-1 items-start gap-2 text-left"
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                className={`mt-0.5 h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200 group-hover:text-slate-300 ${
-                  expanded ? 'rotate-90' : ''
-                }`}
+            {collapsible ? (
+              <button
+                type="button"
+                onClick={toggle}
+                aria-expanded={expanded}
+                aria-controls={contentId}
+                className="group flex min-w-0 flex-1 items-start gap-2 text-left"
               >
-                <path
-                  fillRule="evenodd"
-                  d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <span className="min-w-0 flex-1">
-                <h2
-                  className={`font-semibold tracking-wide text-slate-100 group-hover:text-white ${
-                    dense ? 'text-xs leading-tight' : 'text-sm'
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className={`mt-0.5 h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200 group-hover:text-slate-300 ${
+                    expanded ? 'rotate-90' : ''
                   }`}
                 >
-                  {title}
-                </h2>
-                {subtitle && !dense && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
-              </span>
-            </button>
+                  <path
+                    fillRule="evenodd"
+                    d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span className="min-w-0 flex-1">
+                  <h2
+                    className={`font-semibold tracking-wide text-slate-100 group-hover:text-white ${
+                      dense ? 'text-xs leading-tight' : 'text-sm'
+                    }`}
+                  >
+                    {title}
+                  </h2>
+                  {subtitle && !dense && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+                </span>
+              </button>
+            ) : (
+              <div className="flex min-w-0 flex-1 items-start gap-2">
+                <span className="min-w-0 flex-1">
+                  <h2
+                    className={`font-semibold tracking-wide text-slate-100 ${
+                      dense ? 'text-xs leading-tight' : 'text-sm'
+                    }`}
+                  >
+                    {title}
+                  </h2>
+                  {subtitle && !dense && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+                </span>
+              </div>
+            )}
             {tooltip && <MetricTooltip text={tooltip} />}
             {onExpand && (
               <button

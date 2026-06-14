@@ -562,6 +562,7 @@ export default function App() {
               title={panels.events.title}
               subtitle={panels.events.subtitle}
               tooltip={panels.events.tooltip}
+              collapsible
               className={highDensity ? 'mb-1.5' : 'mb-3'}
               onExpand={() => handleExpandPanel('events')}
             >

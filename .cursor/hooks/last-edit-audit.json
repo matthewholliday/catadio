@@ -1,5 +1,5 @@
 {
-  "timestamp": 1781455841.221146,
+  "timestamp": 1781455946.417235,
   "hook_name": "postToolUse",
   "parse_error": null,
   "context_keys": [
@@ -20,7 +20,7 @@
     "user_email",
     "workspace_roots"
   ],
-  "file_path": "/Users/matthew/agent-dashboard/web/src/components/ProjectBar.jsx",
+  "file_path": "/Users/matthew/agent-dashboard/web/src/App.jsx",
   "tool_name": "Write",
   "edits_count": 1,
   "edit_keys": [
@@ -32,7 +32,7 @@
   "has_old_string": false,
   "has_new_string": true,
   "old_string_len": 0,
-  "new_string_len": 13426,
-  "lines_added": 328,
+  "new_string_len": 23514,
+  "lines_added": 619,
   "lines_removed": null
 }
