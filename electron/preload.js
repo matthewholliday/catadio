@@ -43,4 +43,26 @@ contextBridge.exposeInMainWorld('dashboard', {
    * size (~280px wide) or restores it to the normal dashboard size.
    */
   setBackgroundMode: (enabled) => ipcRenderer.invoke('window:setBackgroundMode', enabled),
+
+  /** Enter or exit native fullscreen. */
+  setFullscreen: (enabled) => ipcRenderer.invoke('window:setFullscreen', enabled),
+
+  /** Returns true if the window is currently in fullscreen. */
+  isFullscreen: () => ipcRenderer.invoke('window:isFullscreen'),
+
+  /**
+   * Resize the windowed height to fit the active density mode.
+   * No-op when in fullscreen or background mode.
+   */
+  setWindowedHeight: (height) => ipcRenderer.invoke('window:setWindowedHeight', height),
+
+  /**
+   * Subscribe to fullscreen state changes (e.g. user exits fullscreen via Escape).
+   * Returns an unsubscribe function.
+   */
+  onFullscreenChanged: (callback) => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on('window:fullscreenChanged', listener);
+    return () => ipcRenderer.removeListener('window:fullscreenChanged', listener);
+  },
 });

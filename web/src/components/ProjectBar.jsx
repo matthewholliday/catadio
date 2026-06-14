@@ -164,7 +164,7 @@ function ProjectPickerModal({ project, recent, onOpen, onSwitch, onClose }) {
   );
 }
 
-export function ProjectBar({ project, onOpen, onSwitch, connected, onSettingsOpen }) {
+export function ProjectBar({ project, onOpen, onSwitch, connected, onSettingsOpen, isFullscreen, onToggleFullscreen }) {
   const [recent, setRecent] = useState([]);
   const [hookStatus, setHookStatus] = useState(null);
   const [installing, setInstalling] = useState(false);
@@ -288,6 +288,26 @@ export function ProjectBar({ project, onOpen, onSwitch, connected, onSettingsOpe
               />
               <span className="text-slate-400">{connected ? 'Live' : 'Reconnecting…'}</span>
             </div>
+
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-400 transition hover:border-white/20 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+            >
+              {isFullscreen ? (
+                /* Compress / exit-fullscreen icon */
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                  <path d="M3.28 2.22a.75.75 0 00-1.06 1.06L5.44 6.5H3.75a.75.75 0 000 1.5h3.5A.75.75 0 008 7.25v-3.5a.75.75 0 00-1.5 0v1.69L3.28 2.22zM12 7.25v-3.5a.75.75 0 011.5 0V5.44l3.22-3.22a.75.75 0 111.06 1.06L14.56 6.5h1.69a.75.75 0 010 1.5h-3.5A.75.75 0 0112 7.25zM7.25 12H3.75a.75.75 0 000 1.5h1.69l-3.22 3.22a.75.75 0 101.06 1.06L6.5 14.56v1.69a.75.75 0 001.5 0v-3.5A.75.75 0 007.25 12zM12.75 12a.75.75 0 00-.75.75v3.5a.75.75 0 001.5 0V14.56l3.22 3.22a.75.75 0 101.06-1.06L14.56 13.5h1.69a.75.75 0 000-1.5h-3.5z" />
+                </svg>
+              ) : (
+                /* Expand / enter-fullscreen icon */
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                  <path d="M3.75 3A.75.75 0 003 3.75v3.5a.75.75 0 001.5 0V5.56l3.22 3.22a.75.75 0 001.06-1.06L5.56 4.5h1.69a.75.75 0 000-1.5h-3.5zM13.5 4.5h1.69l-3.22 3.22a.75.75 0 001.06 1.06L16.25 5.56v1.69a.75.75 0 001.5 0v-3.5A.75.75 0 0017 3h-3.5a.75.75 0 000 1.5zM3 13.75a.75.75 0 01.75-.75h3.5a.75.75 0 010 1.5H5.56l3.22 3.22a.75.75 0 11-1.06 1.06L4.5 16.44v1.69a.75.75 0 01-1.5 0v-3.5zM13.28 13.22a.75.75 0 011.06 0l3.22 3.22v-1.69a.75.75 0 011.5 0v3.5a.75.75 0 01-.75.75h-3.5a.75.75 0 010-1.5h1.69l-3.22-3.22a.75.75 0 010-1.06z" />
+                </svg>
+              )}
+            </button>
 
             <button
               type="button"

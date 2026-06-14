@@ -167,18 +167,37 @@ async function startDashboardServer() {
 // BrowserWindow
 // ---------------------------------------------------------------------------
 
+// Fixed windowed-mode dimensions (non-resizable baseline).
+const WINDOWED_WIDTH = 1400;
+const WINDOWED_HEIGHT_NORMAL = 900;
+const WINDOWED_HEIGHT_DENSE = 720;
+
 async function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 800,
-    minHeight: 600,
+    width: WINDOWED_WIDTH,
+    height: WINDOWED_HEIGHT_NORMAL,
+    minWidth: WINDOWED_WIDTH,
+    minHeight: WINDOWED_HEIGHT_NORMAL,
+    resizable: false,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
+  });
+
+  // Push fullscreen state changes to the renderer so the toggle button stays in sync
+  // when the user exits fullscreen via the OS (e.g. Escape key or green traffic light).
+  mainWindow.on('enter-full-screen', () => {
+    mainWindow?.webContents.send('window:fullscreenChanged', true);
+  });
+  mainWindow.on('leave-full-screen', () => {
+    // Restore non-resizable windowed size after the OS animation completes.
+    mainWindow?.setMinimumSize(WINDOWED_WIDTH, WINDOWED_HEIGHT_NORMAL);
+    mainWindow?.setSize(WINDOWED_WIDTH, WINDOWED_HEIGHT_NORMAL);
+    mainWindow?.setResizable(false);
+    mainWindow?.webContents.send('window:fullscreenChanged', false);
   });
 
   if (IS_DEV) {
@@ -275,14 +294,46 @@ function registerIpcHandlers() {
   ipcMain.handle('window:setBackgroundMode', (_event, enabled) => {
     if (!mainWindow) return;
     if (enabled) {
+      // Exit fullscreen before collapsing to the compact background size.
+      if (mainWindow.isFullScreen()) {
+        mainWindow.setFullScreen(false);
+      }
       mainWindow.setMinimumSize(280, 200);
       mainWindow.setSize(280, 420);
       mainWindow.setResizable(false);
     } else {
-      mainWindow.setResizable(true);
-      mainWindow.setMinimumSize(800, 600);
-      mainWindow.setSize(1400, 900);
+      mainWindow.setMinimumSize(WINDOWED_WIDTH, WINDOWED_HEIGHT_NORMAL);
+      mainWindow.setSize(WINDOWED_WIDTH, WINDOWED_HEIGHT_NORMAL);
+      mainWindow.setResizable(false);
     }
+  });
+
+  // --- window:setFullscreen ------------------------------------------------
+  ipcMain.handle('window:setFullscreen', (_event, enabled) => {
+    if (!mainWindow) return;
+    if (enabled) {
+      // macOS requires a resizable window to enter native fullscreen.
+      mainWindow.setResizable(true);
+      mainWindow.setFullScreen(true);
+    } else {
+      mainWindow.setFullScreen(false);
+      // Windowed restoration is handled in the leave-full-screen event.
+    }
+  });
+
+  // --- window:isFullscreen -------------------------------------------------
+  ipcMain.handle('window:isFullscreen', () => {
+    return mainWindow?.isFullScreen() ?? false;
+  });
+
+  // --- window:setWindowedHeight --------------------------------------------
+  // Lets the renderer adjust the windowed height for the active density mode
+  // without leaving dead space at the bottom of the non-resizable window.
+  ipcMain.handle('window:setWindowedHeight', (_event, height) => {
+    if (!mainWindow || mainWindow.isFullScreen()) return;
+    const h = Math.max(400, Math.round(height));
+    mainWindow.setMinimumSize(WINDOWED_WIDTH, h);
+    mainWindow.setSize(WINDOWED_WIDTH, h);
   });
 
   // --- app:quit ------------------------------------------------------------

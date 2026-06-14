@@ -347,6 +347,7 @@ export default function App() {
   const [expandedPanelId, setExpandedPanelId] = useState(null);
   const [densityMode, setDensityMode] = useState(readDensityMode);
   const [trendWindowMin, setTrendWindowMin] = useState(readTrendWindowMin);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const highDensity = densityMode === 'high';
   const isBackground = densityMode === 'background';
@@ -360,6 +361,27 @@ export default function App() {
     if (!isElectron) return;
     window.dashboard.setBackgroundMode(isBackground);
   }, [isElectron, isBackground]);
+
+  // Adjust windowed height to match the active density mode so there is no
+  // dead space at the bottom of the non-resizable window.
+  useEffect(() => {
+    if (!isElectron || isBackground || isFullscreen) return;
+    const height = densityMode === 'high' ? 720 : 900;
+    window.dashboard.setWindowedHeight(height);
+  }, [isElectron, isBackground, isFullscreen, densityMode]);
+
+  // Sync fullscreen state from the main process on mount and on OS-level changes.
+  useEffect(() => {
+    if (!isElectron) return undefined;
+    window.dashboard.isFullscreen().then(setIsFullscreen);
+    const unsubscribe = window.dashboard.onFullscreenChanged(setIsFullscreen);
+    return unsubscribe;
+  }, [isElectron]);
+
+  const handleToggleFullscreen = useCallback(async () => {
+    if (!isElectron) return;
+    await window.dashboard.setFullscreen(!isFullscreen);
+  }, [isElectron, isFullscreen]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -557,6 +579,8 @@ export default function App() {
         onSwitch={handleSwitch}
         connected={connected}
         onSettingsOpen={() => setSettingsOpen(true)}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={handleToggleFullscreen}
       />
 
       {!isElectron && (
