@@ -43,8 +43,27 @@ jobs:
       - name: Install web dependencies
         run: npm ci --prefix web
 
-      - name: Build
-        run: npm run build && npx electron-builder --publish never
+      - name: Build web assets
+        run: npm run build
+
+      - name: Package (Windows / Linux)
+        if: runner.os != 'macOS'
+        run: npx electron-builder --publish never
+
+      - name: Package (macOS, ad-hoc signed)
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          # 1. Build the unpacked .app (electron-builder skips signing: identity=null)
+          npx electron-builder --mac --dir --publish never
+          # 2. Ad-hoc sign the app so arm64 will launch (required after the
+          #    quarantine flag is cleared on downloaded builds)
+          APP="$(find dist -maxdepth 2 -name '*.app' | head -n1)"
+          echo "Ad-hoc signing: $APP"
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          # 3. Package the signed .app into the DMG
+          npx electron-builder --mac dmg --prepackaged "$APP" --publish never
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -73,6 +92,16 @@ jobs:
           tag_name: ${{ github.event.inputs.tag }}
           name: catadio ${{ github.event.inputs.tag }}
           files: artifacts/**
+          body: |
+            ### macOS install note
+
+            The `.dmg` is ad-hoc signed but not notarized, so macOS may show
+            *"catadio is damaged and can't be opened"* on first launch. After
+            dragging the app to Applications, clear the quarantine flag once:
+
+            ```bash
+            xattr -cr /Applications/catadio.app
+            ```
           generate_release_notes: true
           draft: false
           prerelease: false
