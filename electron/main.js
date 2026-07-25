@@ -392,14 +392,15 @@ function registerIpcHandlers() {
   });
 
   // --- hooks:setup ---------------------------------------------------------
-  ipcMain.handle('hooks:setup', (_event, dirPath) => {
+  // `agent` selects which agent's hooks to install: 'cursor', 'claude', or 'both'.
+  ipcMain.handle('hooks:setup', (_event, dirPath, agent = 'both') => {
     try {
       const project =
         recentProjects.find((p) => p.path === dirPath) ??
         (activeProject?.path === dirPath ? activeProject : null);
       const projectId = project?.id ?? null;
-      installHooks(dirPath, projectId);
-      installClaudeHooks(dirPath, projectId);
+      if (agent === 'cursor' || agent === 'both') installHooks(dirPath, projectId);
+      if (agent === 'claude' || agent === 'both') installClaudeHooks(dirPath, projectId);
       return { success: true, status: checkHookStatus(dirPath) };
     } catch (err) {
       console.error('hooks:setup error:', err);

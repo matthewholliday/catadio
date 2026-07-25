@@ -18,11 +18,12 @@ const EMPTY_METRICS = {
   updatedAt: Date.now() / 1000,
 };
 
-function sendClientConfig(socket, { trendWindowMin }) {
+function sendClientConfig(socket, { trendWindowMin, agent }) {
   if (socket?.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({
       type: 'config',
       trendWindowMin,
+      agent,
     }));
   }
 }
@@ -38,13 +39,15 @@ function getWebSocketUrl(projectId) {
   return `${protocol}//${window.location.host}/ws${qs}`;
 }
 
-export function useMetrics(projectId, trendWindowMin = 0.5) {
+export function useMetrics(projectId, trendWindowMin = 0.5, agent = 'all') {
   const [metrics, setMetrics] = useState(EMPTY_METRICS);
   const [connected, setConnected] = useState(false);
   const wsRef = useRef(null);
   const trendWindowRef = useRef(trendWindowMin);
+  const agentRef = useRef(agent);
 
   trendWindowRef.current = trendWindowMin;
+  agentRef.current = agent;
 
   useEffect(() => {
     if (projectId === null) {
@@ -71,6 +74,7 @@ export function useMetrics(projectId, trendWindowMin = 0.5) {
         setConnected(true);
         sendClientConfig(ws, {
           trendWindowMin: trendWindowRef.current,
+          agent: agentRef.current,
         });
       };
       ws.onerror = () => setConnected(false);
@@ -117,8 +121,9 @@ export function useMetrics(projectId, trendWindowMin = 0.5) {
     if (projectId === null || !connected) return undefined;
     sendClientConfig(wsRef.current, {
       trendWindowMin,
+      agent,
     });
-  }, [projectId, connected, trendWindowMin]);
+  }, [projectId, connected, trendWindowMin, agent]);
 
   return { metrics, connected };
 }

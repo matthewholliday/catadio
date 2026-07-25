@@ -256,6 +256,7 @@ def is_permission_notification(input_data: dict) -> bool:
 def emit(hook_event: str, input_data: dict, context_details: dict, verdict: str = "ALLOWED") -> None:
     payload = {
         "hook_event": hook_event,
+        "agent": "claude",
         "timestamp": time.time(),
         "conversation_id": input_data.get("session_id"),
         # Claude Code has no generation id; synthesize a unique one so the

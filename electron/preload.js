@@ -31,10 +31,11 @@ contextBridge.exposeInMainWorld('dashboard', {
   getHookStatus: (dirPath) => ipcRenderer.invoke('hooks:getStatus', dirPath),
 
   /**
-   * Install or update dashboard hooks (Cursor and Claude Code) in the given directory.
+   * Install or update dashboard hooks in the given directory.
+   * `agent` is 'cursor' | 'claude' | 'both' (default 'both').
    * Returns { success: boolean, status?, error? }.
    */
-  setupHooks: (dirPath) => ipcRenderer.invoke('hooks:setup', dirPath),
+  setupHooks: (dirPath, agent) => ipcRenderer.invoke('hooks:setup', dirPath, agent),
 
   /** Quit the application. */
   quit: () => ipcRenderer.invoke('app:quit'),

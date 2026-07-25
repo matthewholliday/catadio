@@ -35,6 +35,9 @@ export function ingestEvent(payload, projectId = 'default') {
   const event = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     hook_event: payload.hook_event ?? 'unknown',
+    // Source agent. Legacy/simulator events carry no tag; treat them as Cursor,
+    // which is the only agent that existed before Claude Code support.
+    agent: payload.agent ?? 'cursor',
     timestamp: payload.timestamp ?? Date.now() / 1000,
     conversation_id: payload.conversation_id ?? null,
     generation_id: payload.generation_id ?? null,
