@@ -78,111 +78,14 @@ function MenuModal({ onSettings, onOpenProject, onClose }) {
   );
 }
 
-function ProjectPickerModal({ project, recent, onOpen, onSwitch, onClose }) {
-  const overlayRef = useRef(null);
+const AGENT_LABELS = { cursor: 'Cursor', claude: 'Claude Code' };
 
-  useEffect(() => {
-    const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose]);
-
-  const handleSwitch = (id) => {
-    onSwitch(id);
-    onClose();
-  };
-
-  const handleOpen = () => {
-    onOpen();
-    onClose();
-  };
-
-  return (
-      <div
-      ref={overlayRef}
-      className="window-no-drag fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm pt-14 px-6"
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Switch project"
-        className="flex w-80 flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Current project */}
-        {project && (
-          <div className="border-b border-border px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-wider text-fg-muted">Current project</p>
-            <p className="mt-1 truncate text-sm font-medium text-fg" title={project.path}>
-              {project.path}
-            </p>
-          </div>
-        )}
-
-        {/* Recent projects */}
-        {recent.length > 0 && (
-          <div className="flex flex-col">
-            <p className="px-4 pt-3 pb-1 text-xs font-medium uppercase tracking-wider text-fg-muted">
-              Recent projects
-            </p>
-            <ul className="max-h-60 overflow-y-auto">
-              {recent.map((p) => (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    onClick={() => handleSwitch(p.id)}
-                    className={`flex w-full flex-col items-start px-4 py-2.5 text-left transition hover:bg-overlay/5 ${
-                      p.id === project?.id ? 'opacity-40 pointer-events-none' : ''
-                    }`}
-                  >
-                    <span className="truncate text-sm font-medium text-fg" title={p.path}>
-                      {p.path}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Open new */}
-        <div className="border-t border-border p-3">
-          <button
-            type="button"
-            onClick={handleOpen}
-            className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium text-accent transition hover:bg-accent/10"
-          >
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0" aria-hidden="true">
-              <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-              <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 9v4m-2-2h4" fill="none" />
-            </svg>
-            Open project folder…
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const AGENTS = [
-  { key: 'cursor', label: 'Cursor' },
-  { key: 'claude', label: 'Claude Code' },
-];
-
-export function ProjectBar({ project, onOpen, onSwitch, connected, onSettingsOpen, isFullscreen, onToggleFullscreen, agentFilter, onAgentFilterChange }) {
-  const [recent, setRecent] = useState([]);
+export function ProjectBar({ project, onOpen, connected, onSettingsOpen, isFullscreen, onToggleFullscreen, agentFilter, onAgentFilterChange }) {
   const [hookStatus, setHookStatus] = useState(null);
-  const [installing, setInstalling] = useState(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [installing, setInstalling] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const isElectron = typeof window.dashboard !== 'undefined';
   const isMac = navigator.platform.startsWith('Mac');
-
-  useEffect(() => {
-    if (!isElectron) return;
-    window.dashboard.getRecentProjects().then(setRecent);
-  }, [isElectron, project?.id]);
 
   useEffect(() => {
     if (!isElectron || !project?.path) {
@@ -192,19 +95,31 @@ export function ProjectBar({ project, onOpen, onSwitch, connected, onSettingsOpe
     window.dashboard.getHookStatus(project.path).then(setHookStatus);
   }, [isElectron, project?.path]);
 
-  const handleInstall = async (agent) => {
+  // The agent slider ('all' | 'cursor' | 'claude') drives which hooks the
+  // single install button targets. 'all' installs both.
+  const targetAgents = (agentFilter ?? 'all') === 'all' ? ['cursor', 'claude'] : [agentFilter];
+  const targetLabel = (agentFilter ?? 'all') === 'all' ? 'all hooks' : AGENT_LABELS[agentFilter];
+
+  const targetStatus = (() => {
+    if (!hookStatus) return null;
+    const statuses = targetAgents.map((a) => hookStatus[a] ?? 'missing');
+    if (statuses.every((s) => s === 'active')) return 'active';
+    if (statuses.every((s) => s === 'missing')) return 'missing';
+    return 'partial';
+  })();
+
+  const handleInstall = async () => {
     if (!project?.path || installing) return;
-    setInstalling(agent);
+    setInstalling(true);
     try {
-      const result = await window.dashboard.setupHooks(project.path, agent);
-      if (result?.status) {
-        setHookStatus(result.status);
-      } else {
-        const updated = await window.dashboard.getHookStatus(project.path);
-        setHookStatus(updated);
+      for (const agent of targetAgents) {
+        const result = await window.dashboard.setupHooks(project.path, agent);
+        if (result?.status) setHookStatus(result.status);
       }
+      const updated = await window.dashboard.getHookStatus(project.path);
+      setHookStatus(updated);
     } finally {
-      setInstalling(null);
+      setInstalling(false);
     }
   };
 
@@ -231,73 +146,38 @@ export function ProjectBar({ project, onOpen, onSwitch, connected, onSettingsOpe
             </h1>
           </div>
 
-          {/* Center: project picker trigger */}
-          <div className="pointer-events-none absolute left-1/2 top-1/2 flex max-w-[min(420px,calc(100%-24rem))] -translate-x-1/2 -translate-y-1/2 justify-center">
-            <button
-              type="button"
-              onClick={() => setPickerOpen(true)}
-              aria-haspopup="dialog"
-              className="window-no-drag pointer-events-auto group flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-accent/40 bg-accent/10 px-3 py-1.5 text-left shadow-[0_0_20px_rgba(251,146,60,0.15)] transition hover:border-accent/60 hover:bg-accent/20"
-            >
-              {project ? (
-                <p
-                  className="min-w-0 truncate text-sm font-medium text-accent group-hover:text-fg"
-                  title={project.path}
-                >
-                  {project.path}
-                </p>
-              ) : (
-                <p className="text-xs font-medium text-accent/80 group-hover:text-accent">
-                  Select a project…
-                </p>
-              )}
-              <svg
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                className="ml-0.5 h-3.5 w-3.5 shrink-0 text-accent/70 group-hover:text-accent"
-                aria-hidden="true"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M5.22 8.22a.75.75 0 011.06 0L10 11.94l3.72-3.72a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.22 9.28a.75.75 0 010-1.06z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </button>
-          </div>
+          {/* Center: agent slider */}
+          {onAgentFilterChange && (
+            <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+              <AgentFilter
+                value={agentFilter ?? 'all'}
+                onChange={onAgentFilterChange}
+                className="window-no-drag pointer-events-auto"
+              />
+            </div>
+          )}
 
           {/* Right: controls */}
           <div className="window-no-drag flex shrink-0 items-center gap-3 text-sm">
-            {onAgentFilterChange && (
-              <AgentFilter value={agentFilter ?? 'all'} onChange={onAgentFilterChange} />
-            )}
             {project && (
               <div className="flex items-center gap-2">
-                {AGENTS.map((a) => {
-                  const status = hookStatus?.[a.key];
-                  const busy = installing === a.key;
-                  return (
-                    <div key={a.key} className="flex items-center gap-1">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                          hookStatus ? styleForStatus(status) : 'bg-border/50 text-fg-soft'
-                        }`}
-                        title={`${a.label} hooks ${hookStatus ? labelForStatus(status) : 'checking'}`}
-                      >
-                        {a.label} {hookStatus ? labelForStatus(status) : '…'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleInstall(a.key)}
-                        disabled={!!installing}
-                        title={`${status === 'active' ? 'Reinstall' : 'Install'} ${a.label} hooks`}
-                        className="rounded-md bg-accent/20 px-2 py-1 text-xs font-medium text-accent hover:bg-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {busy ? '…' : status === 'active' ? 'Reinstall' : 'Install'}
-                      </button>
-                    </div>
-                  );
-                })}
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                    hookStatus ? styleForStatus(targetStatus) : 'bg-border/50 text-fg-soft'
+                  }`}
+                  title={`${targetLabel} ${hookStatus ? labelForStatus(targetStatus) : 'checking'}`}
+                >
+                  {targetLabel} {hookStatus ? labelForStatus(targetStatus) : '…'}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleInstall}
+                  disabled={installing}
+                  title={`${targetStatus === 'active' ? 'Reinstall' : 'Install'} ${targetLabel}`}
+                  className="rounded-md bg-accent/20 px-2 py-1 text-xs font-medium text-accent hover:bg-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {installing ? '…' : `${targetStatus === 'active' ? 'Reinstall' : 'Install'} ${targetLabel}`}
+                </button>
               </div>
             )}
             <div className="flex items-center gap-2">
@@ -340,16 +220,6 @@ export function ProjectBar({ project, onOpen, onSwitch, connected, onSettingsOpe
           </div>
         </div>
       </div>
-
-      {pickerOpen && (
-        <ProjectPickerModal
-          project={project}
-          recent={recent}
-          onOpen={onOpen}
-          onSwitch={onSwitch}
-          onClose={() => setPickerOpen(false)}
-        />
-      )}
 
       {menuOpen && (
         <MenuModal
