@@ -64,6 +64,10 @@ function getHooksSourceDir() {
   return appPath('.cursor', 'hooks');
 }
 
+function getClaudeHooksSourceDir() {
+  return appPath('.claude', 'hooks');
+}
+
 // ---------------------------------------------------------------------------
 // Hook installation
 // ---------------------------------------------------------------------------
@@ -85,7 +89,32 @@ const HOOK_COMMANDS = {
   stop: [{ command: 'python3 .cursor/hooks/dashboard_telemetry.py stop' }],
 };
 
-function checkHookStatus(targetDir) {
+// Claude Code hooks live in .claude/settings.json under a nested shape:
+// hooks -> <EventName> -> [{ matcher?, hooks: [{ type: 'command', command }] }].
+// The telemetry script maps these events onto the same canonical vocabulary the
+// dashboard already understands (see .claude/hooks/claude_telemetry.py).
+const CLAUDE_HOOK_COMMANDS = {
+  SessionStart: [{ command: 'python3 .claude/hooks/claude_telemetry.py SessionStart' }],
+  SessionEnd: [{ command: 'python3 .claude/hooks/claude_telemetry.py SessionEnd' }],
+  Notification: [{ command: 'python3 .claude/hooks/claude_telemetry.py Notification' }],
+  PreToolUse: [
+    { matcher: 'Bash', command: 'python3 .claude/hooks/claude_telemetry.py PreToolUse' },
+    { matcher: 'mcp__.*', command: 'python3 .claude/hooks/claude_telemetry.py PreToolUse' },
+  ],
+  PostToolUse: [
+    { matcher: 'Bash', command: 'python3 .claude/hooks/claude_telemetry.py PostToolUse' },
+    { matcher: 'Edit|Write|MultiEdit|NotebookEdit', command: 'python3 .claude/hooks/claude_telemetry.py PostToolUse' },
+    { matcher: 'mcp__.*', command: 'python3 .claude/hooks/claude_telemetry.py PostToolUse' },
+  ],
+};
+
+function statusFromParts(scriptExists, hooksJsonOk) {
+  if (scriptExists && hooksJsonOk) return 'active';
+  if (scriptExists || hooksJsonOk) return 'partial';
+  return 'missing';
+}
+
+function checkCursorHookStatus(targetDir) {
   const scriptPath = path.join(targetDir, '.cursor', 'hooks', 'dashboard_telemetry.py');
   const hooksJsonPath = path.join(targetDir, '.cursor', 'hooks.json');
 
@@ -105,9 +134,50 @@ function checkHookStatus(targetDir) {
     // File missing or malformed; hooksJsonOk stays false
   }
 
-  if (scriptExists && hooksJsonOk) return { status: 'active' };
-  if (scriptExists || hooksJsonOk) return { status: 'partial' };
-  return { status: 'missing' };
+  return statusFromParts(scriptExists, hooksJsonOk);
+}
+
+function checkClaudeHookStatus(targetDir) {
+  const scriptPath = path.join(targetDir, '.claude', 'hooks', 'claude_telemetry.py');
+  const settingsPath = path.join(targetDir, '.claude', 'settings.json');
+
+  const scriptExists = fs.existsSync(scriptPath);
+
+  let settingsOk = false;
+  try {
+    const data = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    // Claude Code settings nest command entries under hooks[event][].hooks[].
+    settingsOk = Object.values(data.hooks ?? {}).some(
+      (entries) =>
+        Array.isArray(entries) &&
+        entries.some(
+          (group) =>
+            Array.isArray(group.hooks) &&
+            group.hooks.some(
+              (h) => typeof h.command === 'string' && h.command.includes('claude_telemetry.py'),
+            ),
+        ),
+    );
+  } catch {
+    // File missing or malformed; settingsOk stays false
+  }
+
+  return statusFromParts(scriptExists, settingsOk);
+}
+
+// Returns per-agent status plus a combined `status` for the legacy single badge.
+// Combined is 'active' if either agent is fully wired, else 'partial' if either
+// is partially wired, else 'missing'.
+function checkHookStatus(targetDir) {
+  const cursor = checkCursorHookStatus(targetDir);
+  const claude = checkClaudeHookStatus(targetDir);
+  const statuses = [cursor, claude];
+  const combined = statuses.includes('active')
+    ? 'active'
+    : statuses.includes('partial')
+      ? 'partial'
+      : 'missing';
+  return { status: combined, cursor, claude };
 }
 
 function installHooks(targetDir, projectId) {
@@ -151,6 +221,54 @@ function installHooks(targetDir, projectId) {
   }
 
   fs.writeFileSync(hooksJsonPath, JSON.stringify(existing, null, 2) + '\n');
+}
+
+function installClaudeHooks(targetDir, projectId) {
+  const claudeDir = path.join(targetDir, '.claude');
+  const hooksDir = path.join(claudeDir, 'hooks');
+  fs.mkdirSync(hooksDir, { recursive: true });
+
+  // Copy telemetry script from bundled resources
+  const srcScript = path.join(getClaudeHooksSourceDir(), 'claude_telemetry.py');
+  const destScript = path.join(hooksDir, 'claude_telemetry.py');
+  fs.copyFileSync(srcScript, destScript);
+
+  // Scope the telemetry endpoint to this project's UUID so hook events land in
+  // the correct WebSocket bucket (not the generic "default").
+  const dashboardUrl = projectId
+    ? `http://localhost:3847/api/v1/telemetry?project=${encodeURIComponent(projectId)}`
+    : 'http://localhost:3847/api/v1/telemetry';
+
+  // Read and merge .claude/settings.json (preserving unrelated hooks/settings)
+  const settingsPath = path.join(claudeDir, 'settings.json');
+  let existing = { hooks: {} };
+  try {
+    const raw = fs.readFileSync(settingsPath, 'utf8');
+    const parsed = JSON.parse(raw);
+    existing = { ...parsed, hooks: parsed.hooks ?? {} };
+  } catch {
+    // No existing settings.json; start fresh
+  }
+
+  for (const [event, entries] of Object.entries(CLAUDE_HOOK_COMMANDS)) {
+    const current = Array.isArray(existing.hooks[event]) ? existing.hooks[event] : [];
+    // Drop any stale dashboard groups for this event before re-adding.
+    const filtered = current.filter(
+      (group) =>
+        !Array.isArray(group?.hooks) ||
+        !group.hooks.some(
+          (h) => typeof h.command === 'string' && h.command.includes('claude_telemetry.py'),
+        ),
+    );
+    const scopedGroups = entries.map((entry) => {
+      const group = { hooks: [{ type: 'command', command: `DASHBOARD_URL=${dashboardUrl} ${entry.command}` }] };
+      if (entry.matcher) group.matcher = entry.matcher;
+      return group;
+    });
+    existing.hooks[event] = [...filtered, ...scopedGroups];
+  }
+
+  fs.writeFileSync(settingsPath, JSON.stringify(existing, null, 2) + '\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -223,7 +341,7 @@ function registerIpcHandlers() {
   // --- project:open --------------------------------------------------------
   ipcMain.handle('project:open', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
-      title: 'Open Cursor Project Folder',
+      title: 'Open Project Folder',
       properties: ['openDirectory'],
       buttonLabel: 'Open Project',
     });
@@ -281,6 +399,7 @@ function registerIpcHandlers() {
         (activeProject?.path === dirPath ? activeProject : null);
       const projectId = project?.id ?? null;
       installHooks(dirPath, projectId);
+      installClaudeHooks(dirPath, projectId);
       return { success: true, status: checkHookStatus(dirPath) };
     } catch (err) {
       console.error('hooks:setup error:', err);

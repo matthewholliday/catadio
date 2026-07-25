@@ -1,7 +1,7 @@
 {
   "name": "agent-dashboard",
   "version": "1.0.0",
-  "description": "Real-time Cursor agent observability dashboard",
+  "description": "Real-time Cursor & Claude Code agent observability dashboard",
   "license": "MIT",
   "type": "module",
   "main": "electron/main.js",
@@ -41,7 +41,8 @@
       "server/**",
       "!server/node_modules/**",
       "web/dist/**",
-      ".cursor/hooks/**"
+      ".cursor/hooks/**",
+      ".claude/hooks/**"
     ],
     "mac": {
       "target": ["dmg"],

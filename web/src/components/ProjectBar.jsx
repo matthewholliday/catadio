@@ -204,20 +204,25 @@ export function ProjectBar({ project, onOpen, onSwitch, connected, onSettingsOpe
 
   if (!isElectron) return null;
 
-  const hookBadge = (() => {
+  const agentBadges = (() => {
     if (!project) {
-      return { label: 'No project', className: 'bg-border/50 text-fg-soft' };
+      return [{ key: 'none', label: 'No project', className: 'bg-border/50 text-fg-soft' }];
     }
-    if (hookStatus?.status === 'active') {
-      return { label: 'Hooks active', className: 'bg-success/20 text-success' };
+    if (!hookStatus) {
+      return [{ key: 'checking', label: 'Checking hooks…', className: 'bg-border/50 text-fg-soft' }];
     }
-    if (hookStatus?.status === 'partial') {
-      return { label: 'Hooks partial', className: 'bg-warn/20 text-warn' };
-    }
-    if (hookStatus?.status === 'missing') {
-      return { label: 'Hooks missing', className: 'bg-danger/20 text-danger' };
-    }
-    return { label: 'Checking hooks…', className: 'bg-border/50 text-fg-soft' };
+    const styleFor = (status) =>
+      status === 'active'
+        ? 'bg-success/20 text-success'
+        : status === 'partial'
+          ? 'bg-warn/20 text-warn'
+          : 'bg-danger/20 text-danger';
+    const labelFor = (status) =>
+      status === 'active' ? 'active' : status === 'partial' ? 'partial' : 'missing';
+    return [
+      { key: 'cursor', label: `Cursor ${labelFor(hookStatus.cursor)}`, className: styleFor(hookStatus.cursor) },
+      { key: 'claude', label: `Claude Code ${labelFor(hookStatus.claude)}`, className: styleFor(hookStatus.claude) },
+    ];
   })();
 
   return (
@@ -279,9 +284,11 @@ export function ProjectBar({ project, onOpen, onSwitch, connected, onSettingsOpe
                 {installing ? 'Installing…' : hookStatus?.status === 'active' ? 'Reinstall hooks' : 'Install hooks'}
               </button>
             )}
-            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${hookBadge.className}`}>
-              {hookBadge.label}
-            </span>
+            {agentBadges.map((b) => (
+              <span key={b.key} className={`rounded-full px-2.5 py-1 text-xs font-medium ${b.className}`}>
+                {b.label}
+              </span>
+            ))}
             <div className="flex items-center gap-2">
               <span
                 className={`h-2 w-2 rounded-full ${connected ? 'bg-success animate-pulse' : 'bg-danger'}`}

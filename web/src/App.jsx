@@ -786,8 +786,8 @@ export default function App() {
               <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
                 <h2 className="text-2xl font-semibold text-fg">No project selected</h2>
                 <p className="mt-2 max-w-md text-fg-soft">
-                  Open a Cursor project folder to install dashboard hooks and start streaming agent
-                  telemetry in real time.
+                  Open a Cursor or Claude Code project folder to install dashboard hooks and start
+                  streaming agent telemetry in real time.
                 </p>
                 <button
                   type="button"

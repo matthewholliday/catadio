@@ -4,14 +4,16 @@ Guidance for AI coding agents working in this repository.
 
 ## Project summary
 
-Local real-time dashboard for Cursor agent telemetry. Hooks POST JSON to a Node.js API; React visualizes metrics over WebSocket. Optional Electron wrapper manages multi-project hook installation.
+Local real-time dashboard for Cursor and Claude Code agent telemetry. Per-agent hook scripts normalize events into one canonical vocabulary and POST JSON to a Node.js API; React visualizes metrics over WebSocket. Optional Electron wrapper manages multi-project hook installation for both agents.
 
 ## Repository layout
 
 ```
 agent-dashboard/
-├── .cursor/hooks/          # Telemetry hook script (shipped with Electron)
-├── .cursor/hooks.json      # Hook config template (no project UUID; Electron scopes per workspace)
+├── .cursor/hooks/          # Cursor telemetry hook script (shipped with Electron)
+├── .cursor/hooks.json      # Cursor hook config template (no project UUID; Electron scopes per workspace)
+├── .claude/hooks/          # Claude Code telemetry hook script (shipped with Electron)
+├── .claude/settings.json   # Claude Code hook config (uses $CLAUDE_PROJECT_DIR; Electron scopes per workspace)
 ├── server/                 # Express API, metrics engine, store
 ├── web/src/                # React dashboard (Vite + Tailwind + Recharts)
 ├── electron/               # Desktop shell, project picker, hook installer
@@ -40,7 +42,9 @@ agent-dashboard/
 | Task | Where to work |
 | --- | --- |
 | New metric panel | `server/metrics.js` → `web/src/components/Charts.jsx` → `web/src/App.jsx` |
-| Hook behavior / guardrails | `.cursor/hooks/dashboard_telemetry.py` |
+| Cursor hook behavior / guardrails | `.cursor/hooks/dashboard_telemetry.py` |
+| Claude Code hook behavior / guardrails | `.claude/hooks/claude_telemetry.py` (maps Claude Code events to the canonical vocabulary) |
+| Support a new agent | Add a producer script mapping its hooks to the canonical events; reuse `.claude/hooks/claude_telemetry.py` as the model |
 | API routes | `server/index.js` |
 | WebSocket protocol | `server/index.js`, `web/src/useMetrics.js` |
 | Electron project flow | `electron/main.js`, `web/src/components/ProjectBar.jsx` |
@@ -58,7 +62,8 @@ npm run simulate       # fake telemetry stream (separate terminal)
 ## Testing changes
 
 - No automated test suite yet; verify manually with `npm run dev` and `npm run simulate`
-- After hook script changes, restart Cursor or reload hooks in Settings
+- After Cursor hook changes, restart Cursor or reload hooks in Settings; after Claude Code hook changes, start a new Claude Code session
+- The Claude Code producer reads argv + stdin, so you can test it directly: `echo '<hook-json>' | DASHBOARD_URL=... python3 .claude/hooks/claude_telemetry.py <EventName>`
 - After metrics changes, confirm WebSocket panels update live during simulation
 
 ## Do not

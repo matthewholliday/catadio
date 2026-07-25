@@ -6,4 +6,6 @@ dist/
 testing_sandbox/
 .context/
 .cursor/hooks/last-edit-audit.json
+.claude/hooks/last-edit-audit.json
+.claude/settings.local.json
 tmp/
