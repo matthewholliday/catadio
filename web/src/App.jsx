@@ -35,6 +35,7 @@ import {
   DensitySelect,
   ExpandedProvider,
 } from './components/Charts.jsx';
+import { AgentFilter } from './components/AgentFilter.jsx';
 import { ProjectBar } from './components/ProjectBar.jsx';
 import { ThemeContext } from './theme.js';
 import { useMetrics } from './useMetrics.js';
@@ -491,13 +492,14 @@ export default function App() {
   const [trendWindowMin, setTrendWindowMin] = useState(readTrendWindowMin);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [theme, setTheme] = useState(readTheme);
+  const [agentFilter, setAgentFilter] = useState('all');
 
   const highDensity = densityMode === 'high';
   const isBackground = densityMode === 'background';
 
   const isElectron = typeof window.dashboard !== 'undefined';
   const projectId = isElectron ? (project?.id ?? null) : 'default';
-  const { metrics, connected } = useMetrics(projectId, trendWindowMin);
+  const { metrics, connected } = useMetrics(projectId, trendWindowMin, agentFilter);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -745,6 +747,8 @@ export default function App() {
             onSettingsOpen={() => setSettingsOpen(true)}
             isFullscreen={isFullscreen}
             onToggleFullscreen={handleToggleFullscreen}
+            agentFilter={agentFilter}
+            onAgentFilterChange={setAgentFilter}
           />
 
           {!isElectron && (
@@ -754,6 +758,7 @@ export default function App() {
                   catadio
                 </h1>
                 <div className="flex items-center gap-4 text-sm">
+                  <AgentFilter value={agentFilter} onChange={setAgentFilter} />
                   <div className="hidden sm:block text-right">
                     <p className="text-fg-soft">
                       {metrics.totals.recentEvents} events / {metrics.totals.sessions} sessions (1h)
@@ -786,8 +791,8 @@ export default function App() {
               <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
                 <h2 className="text-2xl font-semibold text-fg">No project selected</h2>
                 <p className="mt-2 max-w-md text-fg-soft">
-                  Open a Cursor project folder to install dashboard hooks and start streaming agent
-                  telemetry in real time.
+                  Open a Cursor or Claude Code project folder to install dashboard hooks and start
+                  streaming agent telemetry in real time.
                 </p>
                 <button
                   type="button"

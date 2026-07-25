@@ -1,6 +1,8 @@
 # Architecture
 
-Real-time observability for Cursor agent activity. Hooks in the IDE stream JSON telemetry to a local Node.js API; the API aggregates metrics and pushes updates to a React dashboard over WebSocket.
+Real-time observability for Cursor and Claude Code agent activity. Hooks in the agent stream JSON telemetry to a local Node.js API; the API aggregates metrics and pushes updates to a React dashboard over WebSocket.
+
+catadio defines a single **canonical event vocabulary** (`sessionStart`, `beforeShellExecution`, `afterShellExecution`, `afterFileEdit`, `postToolUse`, `afterAgentThought`, `beforeMCPExecution`, `afterMCPExecution`, `stop`). The server, metrics engine, and dashboard only ever speak this vocabulary. Each supported agent has a small producer script that translates its native hook events into the canonical shape before POSTing. Adding a new agent means writing one producer script; no server, metrics, or UI changes are required.
 
 ## System overview
 
@@ -56,6 +58,22 @@ Hook events wired in `.cursor/hooks.json`:
 | `beforeShellExecution` / `afterShellExecution` | Security gating, shell success/failure |
 | `beforeMCPExecution` / `afterMCPExecution` | MCP usage and blocking |
 
+### Telemetry hook (`.claude/hooks/claude_telemetry.py`)
+
+Python script invoked by Claude Code on hook events (configured in `.claude/settings.json`). It mirrors the Cursor script's structure but maps Claude Code's event vocabulary onto catadio's canonical events, so the rest of the stack is unchanged. It reads Claude Code's hook JSON from stdin, synthesizes a unique `generation_id` per event (Claude Code has none, and the churn dedup key depends on it), enforces the same shell/MCP guardrails (exit code 2 = deny), and POSTs to `DASHBOARD_URL`.
+
+| Claude Code hook | Canonical event | Notes |
+| --- | --- | --- |
+| `SessionStart` | `sessionStart` | session pairing anchor (`conversation_id = session_id`) |
+| `SessionEnd` | `stop` | one duration point per session (not per-turn `Stop`) |
+| `PreToolUse` (Bash) | `beforeShellExecution` | guardrail deny -> `DENIED` + exit 2 |
+| `PostToolUse` (Bash) | `afterShellExecution` | `exit_code` inferred from tool result |
+| `PostToolUse` (Edit/Write/MultiEdit/NotebookEdit) | `afterFileEdit` | line deltas computed from old/new strings |
+| `PreToolUse` / `PostToolUse` (`mcp__*`) | `beforeMCPExecution` / `afterMCPExecution` | server parsed from `mcp__server__tool` |
+| `Notification` (permission prompt) | `notification` | `permission: ask` for human-in-the-loop |
+
+Claude Code limitations (documented, no server workaround): no thinking-duration hook (think-time metric empty), no numeric Bash exit code (shell success inferred, default success), and no `model` field (events show no model).
+
 ### API server (`server/`)
 
 | Module | Role |
@@ -85,7 +103,7 @@ Clients receive `{ type: "metrics", data: {...} }` on connect and after each ing
 
 ### Multi-project scoping
 
-Each project has a UUID. Telemetry POSTs include `?project=<uuid>` so events land in the correct bucket. The Electron app generates UUIDs when you open a workspace and rewrites `.cursor/hooks.json` in that workspace with a scoped `DASHBOARD_URL`.
+Each project has a UUID. Telemetry POSTs include `?project=<uuid>` so events land in the correct bucket. The Electron app generates UUIDs when you open a workspace and rewrites both `.cursor/hooks.json` and `.claude/settings.json` in that workspace with a scoped `DASHBOARD_URL`.
 
 For local web-only development of this repo, hooks POST to the default bucket (no `project` query param).
 
@@ -105,16 +123,16 @@ Optional desktop wrapper that:
 
 1. Starts the API server (production builds)
 2. Opens the dashboard in a BrowserWindow
-3. Lets you pick Cursor project folders
-4. Installs/copies hook scripts into the target workspace
+3. Lets you pick project folders (Cursor or Claude Code)
+4. Installs/copies both agents' hook scripts into the target workspace
 5. Scopes telemetry URLs per project UUID
 
 Dev mode runs API + Vite separately and loads `http://localhost:5173`.
 
 ## Data flow
 
-1. Cursor fires a hook → Python script receives JSON on stdin
-2. Script POSTs `{ hook_event, timestamp, conversation_id, model, policy_verdict, context_details }` to the API
+1. Cursor or Claude Code fires a hook → the agent's Python producer script receives JSON on stdin
+2. Script normalizes it and POSTs `{ hook_event, timestamp, conversation_id, generation_id, model, policy_verdict, context_details }` to the API
 3. `store.js` appends the event, tracks session start/stop times
 4. `metrics.js` recomputes aggregates (rates, distributions, time series)
 5. WebSocket broadcasts updated metrics to subscribed clients
@@ -147,7 +165,8 @@ Dev mode runs API + Vite separately and loads `http://localhost:5173`.
 ## Extension points
 
 - **Persistent backend:** Replace or extend `store.js` with Redis, Postgres, or a cloud endpoint
-- **Custom policies:** Edit guardrails in `dashboard_telemetry.py`
+- **Custom policies:** Edit guardrails in `dashboard_telemetry.py` (Cursor) and `claude_telemetry.py` (Claude Code)
+- **New agent:** Add a producer script that maps the agent's hooks onto the canonical vocabulary (model it on `claude_telemetry.py`); no server/metrics/UI changes needed
 - **New metrics:** Add computation in `metrics.js`, visualization in `Charts.jsx`, panel registration in `App.jsx`
 - **Remote telemetry:** Set `DASHBOARD_URL` to your hosted ingestion endpoint
 

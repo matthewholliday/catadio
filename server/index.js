@@ -34,7 +34,10 @@ function broadcastToProject(projectId, type, data) {
 function pushMetrics(projectId) {
   for (const client of clients) {
     if (client.readyState === 1 && client._projectId === projectId) {
-      const data = computeMetrics(projectId, { trendWindowMin: client._trendWindowMin });
+      const data = computeMetrics(projectId, {
+        trendWindowMin: client._trendWindowMin,
+        agent: client._agent,
+      });
       client.send(JSON.stringify({ type: 'metrics', data }));
     }
   }
@@ -56,7 +59,8 @@ function createApp() {
   app.get('/api/metrics', (req, res) => {
     const projectId = req.query.project ?? 'default';
     const trendWindowMin = req.query.trendWindowMin ?? DEFAULT_TREND_WINDOW_MIN;
-    res.json(computeMetrics(projectId, { trendWindowMin }));
+    const agent = req.query.agent ?? 'all';
+    res.json(computeMetrics(projectId, { trendWindowMin, agent }));
   });
 
   app.post('/api/v1/telemetry', (req, res) => {
@@ -118,21 +122,32 @@ export function startServer(options = {}) {
     const projectId = url.searchParams.get('project') ?? 'default';
     ws._projectId = projectId;
     ws._trendWindowMin = DEFAULT_TREND_WINDOW_MIN;
+    ws._agent = 'all';
     clients.add(ws);
     ws.send(JSON.stringify({
       type: 'metrics',
-      data: computeMetrics(projectId, { trendWindowMin: ws._trendWindowMin }),
+      data: computeMetrics(projectId, { trendWindowMin: ws._trendWindowMin, agent: ws._agent }),
     }));
 
     ws.on('message', (raw) => {
       try {
         const msg = JSON.parse(String(raw));
-        if (msg.type === 'config' && msg.trendWindowMin != null) {
-          ws._trendWindowMin = msg.trendWindowMin;
-          ws.send(JSON.stringify({
-            type: 'metrics',
-            data: computeMetrics(projectId, { trendWindowMin: ws._trendWindowMin }),
-          }));
+        if (msg.type === 'config') {
+          let changed = false;
+          if (msg.trendWindowMin != null) {
+            ws._trendWindowMin = msg.trendWindowMin;
+            changed = true;
+          }
+          if (msg.agent != null) {
+            ws._agent = msg.agent;
+            changed = true;
+          }
+          if (changed) {
+            ws.send(JSON.stringify({
+              type: 'metrics',
+              data: computeMetrics(projectId, { trendWindowMin: ws._trendWindowMin, agent: ws._agent }),
+            }));
+          }
         }
       } catch {
         // Ignore malformed client messages

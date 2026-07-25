@@ -2,17 +2,17 @@
 
 ![catadio](img/catadio_logo.png)
 
-**Real-time observability for Cursor agent activity.**
+**Real-time observability for Cursor and Claude Code agent activity.**
 
 </div>
 
 ![catadio dashboard](img/dashboard_screenshot.png)
 
-Cursor project hooks stream telemetry from the IDE into a local Node.js API, and catadio renders it as a live React dashboard. Watch your agent think, edit, run shells, call MCPs, and trip guardrails, all as it happens.
+Cursor and Claude Code hooks stream telemetry from the agent into a local Node.js API, and catadio renders it as a live React dashboard. Watch your agent think, edit, run shells, call MCPs, and trip guardrails, all as it happens.
 
-> **Pre-release:** Only **Cursor on macOS** is supported so far. Windows, Linux, and other editors are not tested or supported yet.
+> **Pre-release:** Best tested on **macOS**. Both **Cursor** and **Claude Code** are supported. Windows and Linux are not tested yet.
 
-Available as a **web app** (browser) or **Electron desktop app** (open any Cursor project folder).
+Available as a **web app** (browser) or **Electron desktop app** (open any Cursor or Claude Code project folder).
 
 **License:** [MIT](LICENSE)
 
@@ -32,6 +32,8 @@ Available as a **web app** (browser) or **Electron desktop app** (open any Curso
 | Code Churn Volume | Line graph | `afterFileEdit` |
 | Autonomous Loop Duration | Scatter plot | `sessionStart` → `stop` |
 | Human-in-the-Loop | Counter + sparkline | `beforeShellExecution` with `permission: ask` |
+
+The **Hook source** column lists catadio's internal (canonical) event names. Cursor emits these names directly; Claude Code sessions feed the same metrics through a mapping layer (see [Claude Code hooks](#claude-code-hooks)). Two metrics have no Claude Code source and stay empty for Claude-only sessions: **Average Think Time** (Claude Code exposes no thinking-duration hook) and precise **Shell Success vs Failure** (Claude Code does not report a numeric exit code, so it is inferred).
 
 ---
 
@@ -64,7 +66,7 @@ npm install --prefix web
 npm run electron:dev
 ```
 
-Use **Open project** to pick a Cursor workspace folder. catadio installs dashboard hooks into that workspace's `.cursor/hooks.json` and scopes telemetry to a project UUID.
+Use **Open project** to pick a workspace folder. catadio installs dashboard hooks for both agents (into `.cursor/hooks.json` and `.claude/settings.json`) and scopes telemetry to a project UUID. Hooks only fire in whichever agent you actually run, so installing both is harmless.
 
 Package for distribution:
 
@@ -103,6 +105,38 @@ After editing hooks, Cursor reloads automatically. Restart Cursor if hooks do no
 
 ---
 
+## Claude Code hooks
+
+Hooks are configured in `.claude/settings.json`. Each event runs `.claude/hooks/claude_telemetry.py` (referenced via `$CLAUDE_PROJECT_DIR`), which maps Claude Code's hook events onto catadio's canonical vocabulary and POSTs to `http://localhost:3847/api/v1/telemetry`. This keeps the server, metrics engine, and dashboard identical for both agents.
+
+Event mapping:
+
+| Claude Code hook | catadio event | Powers |
+| --- | --- | --- |
+| `SessionStart` | `sessionStart` | Session start (loop duration) |
+| `SessionEnd` | `stop` | Session end and duration |
+| `PreToolUse` (Bash) | `beforeShellExecution` | Security gating |
+| `PostToolUse` (Bash) | `afterShellExecution` | Shell outcome (exit code inferred) |
+| `PostToolUse` (Edit/Write/MultiEdit/NotebookEdit) | `afterFileEdit` | Code churn, blast radius |
+| `PreToolUse` / `PostToolUse` (`mcp__*`) | `beforeMCPExecution` / `afterMCPExecution` | MCP usage and blocking |
+| `Notification` (permission prompt) | `notification` | Human-in-the-loop count |
+
+Known limitations for Claude Code sessions:
+
+- **No think-time metric.** Claude Code has no thinking-duration hook, so the Average Think Time chart and the "Thinking" donut slice stay empty.
+- **Approximate shell success.** Claude Code does not expose a numeric Bash exit code; catadio infers success/failure from the tool result, defaulting to success.
+- **No model label.** Claude Code hook payloads carry no model field, so events show no model.
+
+Shell guardrails match the Cursor script: `rm -rf /` and similar patterns are blocked with exit code `2`, which Claude Code treats as denying the tool call. The `DASHBOARD_URL` override applies to both agents:
+
+```bash
+export DASHBOARD_URL=http://localhost:3847/api/v1/telemetry
+```
+
+After editing `.claude/settings.json`, start a new Claude Code session so the hooks load.
+
+---
+
 ## Development
 
 Stream fake telemetry to exercise every panel without running an agent:
@@ -122,13 +156,13 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for data flow, API routes, and extension 
 ## Architecture
 
 ```
-Cursor IDE hooks (stdin JSON)
+Cursor / Claude Code hooks (stdin JSON)
         │
         ▼
-dashboard_telemetry.py  ──POST──▶  Express API (/api/v1/telemetry)
-                                        │
-                                        ├─ in-memory event store
-                                        └─ WebSocket (/ws) ──▶ React dashboard
+telemetry script  ──POST──▶  Express API (/api/v1/telemetry)
+(.cursor or .claude)             │
+                                 ├─ in-memory event store
+                                 └─ WebSocket (/ws) ──▶ React dashboard
 ```
 
 ## Scripts

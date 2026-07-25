@@ -1,0 +1,83 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/claude_telemetry.py\" SessionStart"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/claude_telemetry.py\" SessionEnd"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/claude_telemetry.py\" Notification"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/claude_telemetry.py\" PreToolUse"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/claude_telemetry.py\" PreToolUse"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/claude_telemetry.py\" PostToolUse"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/claude_telemetry.py\" PostToolUse"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "DASHBOARD_URL=http://localhost:3847/api/v1/telemetry python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/claude_telemetry.py\" PostToolUse"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -229,6 +229,7 @@ def main() -> None:
 
     telemetry_payload = {
         "hook_event": hook_name,
+        "agent": "cursor",
         "timestamp": time.time(),
         "conversation_id": input_data.get("conversation_id"),
         "generation_id": input_data.get("generation_id"),

@@ -70,8 +70,15 @@ const STATE_LABELS = {
 
 export const DEFAULT_TREND_WINDOW_MIN = 0.5;
 
+// Restrict events to a single source agent. `undefined` or 'all' means no filter.
+// Untagged events default to 'cursor' (see store.js ingestEvent).
+function filterByAgent(events, agent) {
+  if (!agent || agent === 'all') return events;
+  return events.filter((e) => (e.agent ?? 'cursor') === agent);
+}
+
 export function computeMetrics(projectId = 'default', options = {}) {
-  const events = getEvents(projectId);
+  const events = filterByAgent(getEvents(projectId), options.agent);
   const now = Date.now() / 1000;
   const windowSec = 3600;
   const recent = events.filter((e) => e.timestamp >= now - windowSec);
@@ -108,6 +115,7 @@ function computeEventFeed(events) {
   return events.slice(-MAX_EVENT_FEED).map((e) => ({
     id: e.id,
     hook_event: e.hook_event,
+    agent: e.agent ?? 'cursor',
     time: fmtTimestamp(e.timestamp),
     timestamp: e.timestamp,
     model: e.model ?? null,

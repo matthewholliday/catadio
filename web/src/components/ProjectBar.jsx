@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { AgentFilter } from './AgentFilter.jsx';
 
 function MenuModal({ onSettings, onOpenProject, onClose }) {
   const overlayRef = useRef(null);
@@ -164,10 +165,15 @@ function ProjectPickerModal({ project, recent, onOpen, onSwitch, onClose }) {
   );
 }
 
-export function ProjectBar({ project, onOpen, onSwitch, connected, onSettingsOpen, isFullscreen, onToggleFullscreen }) {
+const AGENTS = [
+  { key: 'cursor', label: 'Cursor' },
+  { key: 'claude', label: 'Claude Code' },
+];
+
+export function ProjectBar({ project, onOpen, onSwitch, connected, onSettingsOpen, isFullscreen, onToggleFullscreen, agentFilter, onAgentFilterChange }) {
   const [recent, setRecent] = useState([]);
   const [hookStatus, setHookStatus] = useState(null);
-  const [installing, setInstalling] = useState(false);
+  const [installing, setInstalling] = useState(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const isElectron = typeof window.dashboard !== 'undefined';
@@ -186,11 +192,11 @@ export function ProjectBar({ project, onOpen, onSwitch, connected, onSettingsOpe
     window.dashboard.getHookStatus(project.path).then(setHookStatus);
   }, [isElectron, project?.path]);
 
-  const handleInstallHooks = async () => {
+  const handleInstall = async (agent) => {
     if (!project?.path || installing) return;
-    setInstalling(true);
+    setInstalling(agent);
     try {
-      const result = await window.dashboard.setupHooks(project.path);
+      const result = await window.dashboard.setupHooks(project.path, agent);
       if (result?.status) {
         setHookStatus(result.status);
       } else {
@@ -198,27 +204,20 @@ export function ProjectBar({ project, onOpen, onSwitch, connected, onSettingsOpe
         setHookStatus(updated);
       }
     } finally {
-      setInstalling(false);
+      setInstalling(null);
     }
   };
 
   if (!isElectron) return null;
 
-  const hookBadge = (() => {
-    if (!project) {
-      return { label: 'No project', className: 'bg-border/50 text-fg-soft' };
-    }
-    if (hookStatus?.status === 'active') {
-      return { label: 'Hooks active', className: 'bg-success/20 text-success' };
-    }
-    if (hookStatus?.status === 'partial') {
-      return { label: 'Hooks partial', className: 'bg-warn/20 text-warn' };
-    }
-    if (hookStatus?.status === 'missing') {
-      return { label: 'Hooks missing', className: 'bg-danger/20 text-danger' };
-    }
-    return { label: 'Checking hooks…', className: 'bg-border/50 text-fg-soft' };
-  })();
+  const styleForStatus = (status) =>
+    status === 'active'
+      ? 'bg-success/20 text-success'
+      : status === 'partial'
+        ? 'bg-warn/20 text-warn'
+        : 'bg-danger/20 text-danger';
+  const labelForStatus = (status) =>
+    status === 'active' ? 'active' : status === 'partial' ? 'partial' : 'missing';
 
   return (
     <>
@@ -269,19 +268,38 @@ export function ProjectBar({ project, onOpen, onSwitch, connected, onSettingsOpe
 
           {/* Right: controls */}
           <div className="window-no-drag flex shrink-0 items-center gap-3 text-sm">
-            {project && (
-              <button
-                type="button"
-                onClick={handleInstallHooks}
-                disabled={installing}
-                className="rounded-md bg-accent/20 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {installing ? 'Installing…' : hookStatus?.status === 'active' ? 'Reinstall hooks' : 'Install hooks'}
-              </button>
+            {onAgentFilterChange && (
+              <AgentFilter value={agentFilter ?? 'all'} onChange={onAgentFilterChange} />
             )}
-            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${hookBadge.className}`}>
-              {hookBadge.label}
-            </span>
+            {project && (
+              <div className="flex items-center gap-2">
+                {AGENTS.map((a) => {
+                  const status = hookStatus?.[a.key];
+                  const busy = installing === a.key;
+                  return (
+                    <div key={a.key} className="flex items-center gap-1">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                          hookStatus ? styleForStatus(status) : 'bg-border/50 text-fg-soft'
+                        }`}
+                        title={`${a.label} hooks ${hookStatus ? labelForStatus(status) : 'checking'}`}
+                      >
+                        {a.label} {hookStatus ? labelForStatus(status) : '…'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleInstall(a.key)}
+                        disabled={!!installing}
+                        title={`${status === 'active' ? 'Reinstall' : 'Install'} ${a.label} hooks`}
+                        className="rounded-md bg-accent/20 px-2 py-1 text-xs font-medium text-accent hover:bg-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {busy ? '…' : status === 'active' ? 'Reinstall' : 'Install'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <span
                 className={`h-2 w-2 rounded-full ${connected ? 'bg-success animate-pulse' : 'bg-danger'}`}
