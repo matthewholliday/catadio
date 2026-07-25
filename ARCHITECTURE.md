@@ -85,6 +85,7 @@ Claude Code limitations (documented, no server workaround): no thinking-duration
 | `env.js` | Loads `.env` from repo root |
 | `seed-demo.js` | One-shot demo data loader |
 | `simulate-live.js` | Continuous fake telemetry for development |
+| `simulate-claude-run.js` | Scripted single Claude Code session (real-time) |
 
 **REST endpoints:**
 
@@ -160,7 +161,8 @@ Dev mode runs API + Vite separately and loads `http://localhost:5173`.
 | Electron dev | `npm run electron:dev` | API + Vite + Electron |
 | Electron prod | `npm run electron:build` | Bundles `web/dist`, ships hooks |
 | Demo data | `npm run seed` | Static snapshot |
-| Live simulator | `npm run simulate` | Continuous fake events |
+| Live simulator | `npm run simulate` | Continuous fake events, mixed agents |
+| Claude run | `npm run simulate:claude` | One scripted Claude Code session, real time |
 
 ## Extension points
 
