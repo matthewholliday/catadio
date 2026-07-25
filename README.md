@@ -74,6 +74,20 @@ Package for distribution:
 npm run electron:build
 ```
 
+### Installing a downloaded macOS build
+
+The macOS `.dmg` is **ad-hoc signed but not notarized** (no paid Apple Developer
+account yet). Because of that, the first time you open a downloaded build macOS
+may say *"catadio is damaged and can't be opened."* This is Gatekeeper's
+quarantine check, not a corrupt download. Clear the quarantine flag once after
+dragging the app to Applications:
+
+```bash
+xattr -cr /Applications/catadio.app
+```
+
+Then open catadio normally. (A future notarized build will remove this step.)
+
 ---
 
 ## Cursor hooks
