@@ -15,6 +15,7 @@
     "electron:build": "npm run build && electron-builder",
     "seed": "node server/seed-demo.js",
     "simulate": "node server/simulate-live.js",
+    "simulate:claude": "node server/simulate-claude-run.js",
     "simulate:project": "bash scripts/simulate-project.sh",
     "start:simulate": "bash scripts/run-electron-with-simulator.sh",
     "build": "npm run build --prefix web"
