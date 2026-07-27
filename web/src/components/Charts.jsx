@@ -20,30 +20,17 @@ import { formatTime } from '../useMetrics.js';
 import { useTheme, THEME_COLORS, chartTooltipProps } from '../theme.js';
 
 const DensityContext = createContext(false);
-const ExpandedContext = createContext(false);
 
 export function DensityProvider({ dense, children }) {
   return <DensityContext.Provider value={dense}>{children}</DensityContext.Provider>;
-}
-
-export function ExpandedProvider({ expanded, children }) {
-  return <ExpandedContext.Provider value={expanded}>{children}</ExpandedContext.Provider>;
 }
 
 function useDensity() {
   return useContext(DensityContext);
 }
 
-function useExpanded() {
-  return useContext(ExpandedContext);
-}
-
 function useLayoutMode() {
-  const dense = useDensity();
-  const expanded = useExpanded();
-  if (expanded) return 'expanded';
-  if (dense) return 'dense';
-  return 'normal';
+  return useDensity() ? 'dense' : 'normal';
 }
 
 function chartTick(dense, color) {
@@ -75,8 +62,7 @@ export function DensitySelect({ value, onChange, className = '', showLabel = tru
 
 function ChartArea({ children, className = '' }) {
   const mode = useLayoutMode();
-  const height =
-    mode === 'expanded' ? 'h-[calc(100vh-14rem)]' : mode === 'dense' ? 'h-[110px]' : 'h-[220px]';
+  const height = mode === 'dense' ? 'h-[110px]' : 'h-[220px]';
   return (
     <div className={`${height} flex-1 ${className}`}>
       <ResponsiveContainer width="100%" height="100%" key={mode}>
@@ -88,17 +74,10 @@ function ChartArea({ children, className = '' }) {
 
 function NoData({ className = '' }) {
   const mode = useLayoutMode();
-  const minHeight =
-    mode === 'expanded' ? 'min-h-[calc(100vh-14rem)]' : mode === 'dense' ? 'min-h-[110px]' : 'min-h-[220px]';
+  const minHeight = mode === 'dense' ? 'min-h-[110px]' : 'min-h-[220px]';
   return (
     <div className={`flex flex-1 items-center justify-center ${minHeight} ${className}`}>
-      <p
-        className={`text-fg-muted ${
-          mode === 'expanded' ? 'text-base' : mode === 'dense' ? 'text-xs' : 'text-sm'
-        }`}
-      >
-        No Data
-      </p>
+      <p className={`text-fg-muted ${mode === 'dense' ? 'text-xs' : 'text-sm'}`}>No Data</p>
     </div>
   );
 }
@@ -160,14 +139,6 @@ function MetricTooltip({ text }) {
   );
 }
 
-function ExpandIcon({ className = 'h-3.5 w-3.5' }) {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" className={className}>
-      <path d="M3.75 3.75a.75.75 0 011.06 0L8.25 7.19V5.5a.75.75 0 011.5 0v3.75a.75.75 0 01-.75.75H5.25a.75.75 0 010-1.5h1.69L3.75 4.81a.75.75 0 010-1.06zM11.75 5.5a.75.75 0 011.5 0v3.75a.75.75 0 01-.75.75H9.31l3.44 3.44a.75.75 0 11-1.06 1.06L8.25 10.31v1.69a.75.75 0 01-1.5 0V8.25a.75.75 0 01.75-.75h3.75zM16.25 11.75a.75.75 0 00-1.06 0l-3.44 3.44v-1.69a.75.75 0 00-1.5 0v3.75a.75.75 0 00.75.75h3.75a.75.75 0 000-1.5h-1.69l3.44-3.44a.75.75 0 000-1.06zM5.5 11.75a.75.75 0 00-.75.75v3.75a.75.75 0 00.75.75h3.75a.75.75 0 000-1.5H7.19l3.44-3.44a.75.75 0 00-1.06-1.06L5.5 14.69v-1.69a.75.75 0 00-.75-.75z" />
-    </svg>
-  );
-}
-
 export function Panel({
   title,
   subtitle,
@@ -177,7 +148,6 @@ export function Panel({
   collapsible = false,
   defaultExpanded = true,
   dragHandleProps = null,
-  onExpand = null,
 }) {
   const dense = useDensity();
   const contentId = useId();
@@ -272,21 +242,6 @@ export function Panel({
               </div>
             )}
             {tooltip && <MetricTooltip text={tooltip} />}
-            {onExpand && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onExpand();
-                }}
-                aria-label={`Expand ${title}`}
-                className={`shrink-0 rounded-lg text-fg-muted transition hover:bg-overlay/5 hover:text-fg-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-                  dense ? 'p-0.5' : 'p-1'
-                }`}
-              >
-                <ExpandIcon className={dense ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
-              </button>
-            )}
           </div>
         </div>
       </header>
@@ -352,20 +307,12 @@ export function SecurityGauge({ rate, blocked, allowed }) {
   return (
     <div
       className={`flex flex-1 flex-col items-center justify-center ${
-        mode === 'expanded'
-          ? 'min-h-[calc(100vh-14rem)] py-8'
-          : mode === 'dense'
-            ? 'min-h-[110px] py-1'
-            : 'min-h-[220px] py-4'
+        mode === 'dense' ? 'min-h-[110px] py-1' : 'min-h-[220px] py-4'
       }`}
     >
       <div
         className={`relative flex items-end justify-center rounded-full border-border ${
-          mode === 'expanded'
-            ? 'h-56 w-56 border-[10px]'
-            : mode === 'dense'
-              ? 'h-20 w-20 border-4'
-              : 'h-36 w-36 border-8'
+          mode === 'dense' ? 'h-20 w-20 border-4' : 'h-36 w-36 border-8'
         }`}
         style={{
           background: `conic-gradient(hsl(${hue} 70% 45%) ${clamped * 3.6}deg, ${tc.border} 0)`,
@@ -373,26 +320,20 @@ export function SecurityGauge({ rate, blocked, allowed }) {
       >
         <div
           className={`absolute flex flex-col items-center justify-center rounded-full bg-surface ${
-            mode === 'expanded' ? 'inset-5' : mode === 'dense' ? 'inset-1.5' : 'inset-3'
+            mode === 'dense' ? 'inset-1.5' : 'inset-3'
           }`}
         >
           <span
             className={`font-bold tabular-nums text-fg ${
-              mode === 'expanded' ? 'text-5xl' : mode === 'dense' ? 'text-lg' : 'text-3xl'
+              mode === 'dense' ? 'text-lg' : 'text-3xl'
             }`}
           >
             {rate}%
           </span>
-          {mode !== 'dense' && (
-            <span className={`text-fg-muted ${mode === 'expanded' ? 'text-sm' : 'text-xs'}`}>blocked</span>
-          )}
+          {mode !== 'dense' && <span className="text-fg-muted text-xs">blocked</span>}
         </div>
       </div>
-      <div
-        className={`flex ${
-          mode === 'expanded' ? 'mt-6 gap-8 text-sm' : mode === 'dense' ? 'mt-1 gap-3 text-xs' : 'mt-4 gap-6 text-xs'
-        }`}
-      >
+      <div className={`flex ${mode === 'dense' ? 'mt-1 gap-3 text-xs' : 'mt-4 gap-6 text-xs'}`}>
         <span className="text-success">● {allowed} allowed</span>
         <span className="text-danger">● {blocked} blocked</span>
       </div>
@@ -407,8 +348,7 @@ function formatTrendWindowLabel(windowMinutes = 0.5) {
 }
 
 function TrendArrow({ direction, positive = 'up', mode = 'normal' }) {
-  const size =
-    mode === 'expanded' ? 'text-6xl' : mode === 'dense' ? 'text-xl' : 'text-4xl';
+  const size = mode === 'dense' ? 'text-xl' : 'text-4xl';
   if (direction === 'flat') {
     return <span className={`${size} leading-none text-fg-muted`}>→</span>;
   }
@@ -425,17 +365,13 @@ function TrendStat({ value, unit, direction, positive = 'up', footer }) {
   return (
     <div
       className={`flex flex-1 flex-col items-center justify-center ${
-        mode === 'expanded'
-          ? 'min-h-[calc(100vh-14rem)] gap-4 py-8'
-          : mode === 'dense'
-            ? 'min-h-[110px] gap-0.5 py-1'
-            : 'min-h-[220px] gap-2 py-4'
+        mode === 'dense' ? 'min-h-[110px] gap-0.5 py-1' : 'min-h-[220px] gap-2 py-4'
       }`}
     >
-      <div className={`flex items-center ${mode === 'expanded' ? 'gap-6' : mode === 'dense' ? 'gap-2' : 'gap-4'}`}>
+      <div className={`flex items-center ${mode === 'dense' ? 'gap-2' : 'gap-4'}`}>
         <span
           className={`font-bold tabular-nums text-fg ${
-            mode === 'expanded' ? 'text-7xl' : mode === 'dense' ? 'text-2xl' : 'text-5xl'
+            mode === 'dense' ? 'text-2xl' : 'text-5xl'
           }`}
         >
           {value}
@@ -443,18 +379,12 @@ function TrendStat({ value, unit, direction, positive = 'up', footer }) {
         <TrendArrow direction={direction} positive={positive} mode={mode} />
       </div>
       {unit && (
-        <span
-          className={`text-fg-muted ${
-            mode === 'expanded' ? 'text-lg' : mode === 'dense' ? 'text-[10px]' : 'text-sm'
-          }`}
-        >
-          {unit}
-        </span>
+        <span className={`text-fg-muted ${mode === 'dense' ? 'text-[10px]' : 'text-sm'}`}>{unit}</span>
       )}
       {footer && (
         <div
           className={`flex flex-wrap justify-center ${
-            mode === 'expanded' ? 'mt-4 gap-6 text-base' : mode === 'dense' ? 'mt-1 gap-2 text-xs' : 'mt-3 gap-4 text-xs'
+            mode === 'dense' ? 'mt-1 gap-2 text-xs' : 'mt-3 gap-4 text-xs'
           }`}
         >
           {footer}
@@ -575,18 +505,10 @@ export function BlastRadiusTreemap({ data }) {
   return (
     <div
       className={`flex min-h-0 flex-1 flex-col overflow-y-auto ${
-        mode === 'expanded'
-          ? 'min-h-[calc(100vh-14rem)]'
-          : mode === 'dense'
-            ? 'min-h-[110px] max-h-[140px]'
-            : 'min-h-[220px]'
+        mode === 'dense' ? 'min-h-[110px] max-h-[140px]' : 'min-h-[220px]'
       }`}
     >
-      <div
-        className={`flex w-full flex-col ${
-          mode === 'expanded' ? 'gap-3' : mode === 'dense' ? 'gap-1' : 'gap-2'
-        }`}
-      >
+      <div className={`flex w-full flex-col ${mode === 'dense' ? 'gap-1' : 'gap-2'}`}>
         {data.map((item) => {
           const intensity = 0.25 + (item.value / max) * 0.75;
           const [r, g, b] = tc.accent.slice(1).match(/.{2}/g).map((h) => parseInt(h, 16));
@@ -594,33 +516,27 @@ export function BlastRadiusTreemap({ data }) {
             <div
               key={item.name}
               className={`flex w-full items-center justify-between rounded-lg border border-border transition hover:border-accent/50 ${
-                mode === 'expanded'
-                  ? 'px-4 py-3.5'
-                  : mode === 'dense'
-                    ? 'px-2 py-1.5'
-                    : 'px-3 py-2.5'
+                mode === 'dense' ? 'px-2 py-1.5' : 'px-3 py-2.5'
               }`}
               style={{ background: `rgba(${r}, ${g}, ${b}, ${intensity * 0.25})` }}
             >
               <p
                 className={`min-w-0 flex-1 truncate font-mono text-fg-soft ${
-                  mode === 'expanded' ? 'text-sm' : mode === 'dense' ? 'text-[10px]' : 'text-xs'
+                  mode === 'dense' ? 'text-[10px]' : 'text-xs'
                 }`}
                 title={item.name}
               >
                 {item.name}
               </p>
-              <div className={`shrink-0 text-right ${mode === 'expanded' ? 'ml-4' : mode === 'dense' ? 'ml-2' : 'ml-3'}`}>
+              <div className={`shrink-0 text-right ${mode === 'dense' ? 'ml-2' : 'ml-3'}`}>
                 <p
                   className={`font-semibold tabular-nums text-fg ${
-                    mode === 'expanded' ? 'text-2xl' : mode === 'dense' ? 'text-sm' : 'text-lg'
+                    mode === 'dense' ? 'text-sm' : 'text-lg'
                   }`}
                 >
                   {item.value}
                 </p>
-                {mode !== 'dense' && (
-                  <p className={`text-fg-muted ${mode === 'expanded' ? 'text-xs' : 'text-[10px]'}`}>edits</p>
-                )}
+                {mode !== 'dense' && <p className="text-fg-muted text-[10px]">edits</p>}
               </div>
             </div>
           );
@@ -691,11 +607,10 @@ export function Events({ events = [] }) {
   const theme = useTheme();
   const tc = THEME_COLORS[theme];
   const dense = mode === 'dense';
-  const expanded = mode === 'expanded';
   const listRef = useRef(null);
-  const padding = expanded ? 'px-6 py-5' : dense ? 'px-2 py-2' : 'px-3 py-3';
-  const textSize = expanded ? 'text-sm' : dense ? 'text-[10px]' : 'text-xs';
-  const height = expanded ? 'h-80' : dense ? 'h-36' : 'h-48';
+  const padding = dense ? 'px-2 py-2' : 'px-3 py-3';
+  const textSize = dense ? 'text-[10px]' : 'text-xs';
+  const height = dense ? 'h-36' : 'h-48';
 
   const lastId = events[events.length - 1]?.id;
   useLayoutEffect(() => {
@@ -711,8 +626,8 @@ export function Events({ events = [] }) {
     );
   }
 
-  const typeColCh = expanded ? '26ch' : dense ? '20ch' : '24ch';
-  const modelColCh = expanded ? '30ch' : dense ? '22ch' : '26ch';
+  const typeColCh = dense ? '20ch' : '24ch';
+  const modelColCh = dense ? '22ch' : '26ch';
   const gridCols = `8ch 2ch ${typeColCh} 5ch ${modelColCh} 1fr`;
 
   return (
@@ -816,26 +731,20 @@ export function HumanInterventions({ data }) {
     return <NoData />;
   }
   const spark = data.sparkline.map((d) => ({ ...d, label: formatTime(d.time) }));
-  const sparkHeight = mode === 'expanded' ? 200 : mode === 'dense' ? 48 : 80;
+  const sparkHeight = mode === 'dense' ? 48 : 80;
   return (
     <div
-      className={`flex flex-1 flex-col ${
-        mode === 'expanded' ? 'min-h-[calc(100vh-14rem)]' : mode === 'dense' ? 'min-h-[110px]' : 'min-h-[220px]'
-      }`}
+      className={`flex flex-1 flex-col ${mode === 'dense' ? 'min-h-[110px]' : 'min-h-[220px]'}`}
     >
-      <div className={`flex shrink-0 items-baseline gap-2 ${mode === 'expanded' ? 'mb-6' : mode === 'dense' ? 'mb-1' : 'mb-3'}`}>
+      <div className={`flex shrink-0 items-baseline gap-2 ${mode === 'dense' ? 'mb-1' : 'mb-3'}`}>
         <span
           className={`font-bold tabular-nums text-warn ${
-            mode === 'expanded' ? 'text-6xl' : mode === 'dense' ? 'text-xl' : 'text-4xl'
+            mode === 'dense' ? 'text-xl' : 'text-4xl'
           }`}
         >
           {data.total}
         </span>
-        <span
-          className={`text-fg-muted ${
-            mode === 'expanded' ? 'text-lg' : mode === 'dense' ? 'text-[10px]' : 'text-sm'
-          }`}
-        >
+        <span className={`text-fg-muted ${mode === 'dense' ? 'text-[10px]' : 'text-sm'}`}>
           manual approvals (1h)
         </span>
       </div>
@@ -847,11 +756,7 @@ export function HumanInterventions({ data }) {
         </ResponsiveContainer>
       </div>
       {data.recent.length > 0 && mode !== 'dense' && (
-        <ul
-          className={`mt-2 shrink-0 space-y-1 overflow-hidden text-fg-soft ${
-            mode === 'expanded' ? 'max-h-48 text-sm' : 'max-h-16 text-xs'
-          }`}
-        >
+        <ul className="mt-2 shrink-0 space-y-1 overflow-hidden text-fg-soft max-h-16 text-xs">
           {data.recent.map((r, i) => (
             <li key={i} className="truncate">
               {formatTime(r.time)} · {r.message}
