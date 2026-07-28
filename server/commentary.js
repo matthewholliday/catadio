@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { extractEventDetail } from './event-fields.js';
 import {
   DEFAULT_COMMENTARY_INTERVAL_SEC,
   getCommentaryIntervalSec,
@@ -33,45 +34,16 @@ function formatTimestamp(unixSec) {
 }
 
 export function describeEvent(event) {
-  const ctx = event.context_details ?? {};
   const parts = [formatTimestamp(event.timestamp), event.hook_event];
 
   if (event.policy_verdict === 'DENIED') {
     parts.push('DENIED');
   }
 
-  if (event.hook_event === 'beforeShellExecution' || event.hook_event === 'afterShellExecution') {
-    const cmd = ctx.command ?? ctx.text ?? '';
-    if (cmd) parts.push(`cmd=${truncate(cmd)}`);
-    if (event.hook_event === 'afterShellExecution') {
-      const code = ctx.exit_code ?? ctx.exitCode;
-      if (code != null) parts.push(`exit=${code}`);
-    }
-  }
-
-  if (event.hook_event === 'afterFileEdit' || event.hook_event === 'afterTabFileEdit') {
-    const files = ctx.files ?? ctx.edits?.map((e) => e.path ?? e.file ?? e.file_path).filter(Boolean);
-    if (files?.length) parts.push(`files=${truncate(files.join(', '))}`);
-  }
-
-  if (event.hook_event === 'afterMCPExecution' || event.hook_event === 'beforeMCPExecution') {
-    const server = ctx.metadata?.server ?? ctx.server ?? ctx.tool_name ?? ctx.toolName;
-    if (server) parts.push(`mcp=${truncate(server)}`);
-  }
-
-  if (event.hook_event === 'postToolUse') {
-    const tool = ctx.tool_name ?? ctx.toolName;
-    if (tool) parts.push(`tool=${tool}`);
-  }
-
-  if (event.hook_event === 'afterAgentThought') {
-    const ms = ctx.duration_ms ?? ctx.thinking_duration_ms ?? ctx.duration ?? ctx.elapsed_ms;
-    if (ms != null) parts.push(`duration_ms=${ms}`);
-  }
-
-  if (event.hook_event === 'stop' && event.session_duration_sec != null) {
-    parts.push(`session_sec=${Math.round(event.session_duration_sec)}`);
-  }
+  // Same extractor the event feed uses, so the prompt can never describe an
+  // event differently from what the dashboard shows.
+  const detail = extractEventDetail(event);
+  if (detail) parts.push(truncate(detail));
 
   if (event.model) parts.push(`model=${event.model}`);
 

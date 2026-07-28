@@ -80,6 +80,7 @@ Claude Code limitations (documented, no server workaround): no thinking-duration
 | --- | --- |
 | `index.js` | Express app, REST routes, WebSocket server |
 | `store.js` | Per-project in-memory event ring buffer (5,000 events) |
+| `event-fields.js` | Reads fields (paths, commands, line deltas, feed detail) out of an event's `context_details` whichever agent shaped it |
 | `metrics.js` | Derives dashboard metrics from raw events |
 | `commentary.js` | Periodic AI summaries via Anthropic (optional) |
 | `env.js` | Loads `.env` from repo root |

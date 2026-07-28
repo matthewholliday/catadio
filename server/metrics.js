@@ -1,55 +1,15 @@
 import { describeEvent } from './commentary.js';
+import {
+  extractDurationMs,
+  extractEditedPaths,
+  extractEventDetail,
+  extractEventLineDeltas,
+  parseToolInput,
+} from './event-fields.js';
 import { getEvents } from './store.js';
 
 function fmtTimestamp(unixSec) {
   return new Date(unixSec * 1000).toISOString().slice(11, 19);
-}
-
-function truncateStr(value, max = 120) {
-  const s = String(value ?? '');
-  return s.length <= max ? s : `${s.slice(0, max)}\u2026`;
-}
-
-function extractEventDetail(event) {
-  const ctx = event.context_details ?? {};
-  const parts = [];
-
-  if (event.hook_event === 'beforeShellExecution' || event.hook_event === 'afterShellExecution') {
-    const cmd = ctx.command ?? ctx.text ?? '';
-    if (cmd) parts.push(truncateStr(cmd, 100));
-    if (event.hook_event === 'afterShellExecution') {
-      const code = ctx.exit_code ?? ctx.exitCode;
-      if (code != null) parts.push(`exit=${code}`);
-    }
-  }
-
-  if (event.hook_event === 'afterFileEdit' || event.hook_event === 'afterTabFileEdit') {
-    const files =
-      ctx.files ??
-      ctx.edits?.map((ed) => ed.path ?? ed.file ?? ed.file_path).filter(Boolean);
-    if (files?.length) parts.push(truncateStr(files.join(', '), 100));
-  }
-
-  if (event.hook_event === 'afterMCPExecution' || event.hook_event === 'beforeMCPExecution') {
-    const server = ctx.metadata?.server ?? ctx.server ?? ctx.tool_name ?? ctx.toolName;
-    if (server) parts.push(truncateStr(server, 60));
-  }
-
-  if (event.hook_event === 'postToolUse') {
-    const tool = ctx.tool_name ?? ctx.toolName;
-    if (tool) parts.push(String(tool));
-  }
-
-  if (event.hook_event === 'afterAgentThought') {
-    const ms = ctx.duration_ms ?? ctx.thinking_duration_ms ?? ctx.duration ?? ctx.elapsed_ms;
-    if (ms != null) parts.push(`${ms}ms`);
-  }
-
-  if (event.hook_event === 'stop' && event.session_duration_sec != null) {
-    parts.push(`${Math.round(event.session_duration_sec)}s`);
-  }
-
-  return parts.join('  ');
 }
 
 const MAX_EVENT_FEED = 100;
@@ -179,17 +139,6 @@ function computeThinkTimeSeries(events) {
   });
 }
 
-function extractDurationMs(event) {
-  const ctx = event.context_details ?? {};
-  return (
-    ctx.duration_ms ??
-    ctx.thinking_duration_ms ??
-    ctx.duration ??
-    ctx.elapsed_ms ??
-    null
-  );
-}
-
 function computeShellOutcomes(events) {
   const buckets = bucketByMinute(events.filter((e) => e.hook_event === 'afterShellExecution'));
   return buckets.map(({ time, items }) => {
@@ -219,135 +168,6 @@ function computeBlastRadius(events) {
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 12);
-}
-
-function extractEditedPaths(event) {
-  const ctx = event.context_details ?? {};
-  if (Array.isArray(ctx.files)) return ctx.files.map(String);
-  if (Array.isArray(ctx.edits)) {
-    const paths = ctx.edits
-      .map((ed) => ed.path ?? ed.file ?? ed.filename ?? ed.file_path)
-      .filter(Boolean);
-    if (paths.length) return paths;
-  }
-  if (ctx.file_path) return [ctx.file_path];
-  if (ctx.path) return [ctx.path];
-  if (ctx.file) return [ctx.file];
-  return ['unknown'];
-}
-
-function countLines(text) {
-  if (text == null || text === '') return 0;
-  const normalized = String(text).replace(/\r\n/g, '\n');
-  const parts = normalized.split('\n');
-  if (parts[parts.length - 1] === '') parts.pop();
-  return parts.length;
-}
-
-function extractEditLineDeltas(edit) {
-  if (
-    edit.lines_added != null ||
-    edit.added != null ||
-    edit.lines_removed != null ||
-    edit.removed != null
-  ) {
-    return {
-      added: edit.lines_added ?? edit.added ?? 0,
-      removed: edit.lines_removed ?? edit.removed ?? 0,
-    };
-  }
-
-  const oldStr = edit.old_string ?? edit.oldString ?? '';
-  const newStr = edit.new_string ?? edit.newString ?? '';
-  if (oldStr !== '' || newStr !== '') {
-    return { added: countLines(newStr), removed: countLines(oldStr) };
-  }
-
-  return { added: 0, removed: 0 };
-}
-
-function extractEventLineDeltas(event) {
-  const ctx = event.context_details ?? {};
-
-  if (Array.isArray(ctx.edits)) {
-    let added = 0;
-    let removed = 0;
-    for (const ed of ctx.edits) {
-      const deltas = extractEditLineDeltas(ed);
-      added += deltas.added;
-      removed += deltas.removed;
-    }
-    if (added > 0 || removed > 0) {
-      return { added, removed };
-    }
-  }
-
-  if (
-    ctx.lines_added != null ||
-    ctx.added != null ||
-    ctx.lines_removed != null ||
-    ctx.removed != null
-  ) {
-    return {
-      added: ctx.lines_added ?? ctx.added ?? 0,
-      removed: ctx.lines_removed ?? ctx.removed ?? 0,
-    };
-  }
-
-  const oldStr = ctx.old_string ?? ctx.oldString ?? '';
-  const newStr = ctx.new_string ?? ctx.newString ?? '';
-  if (oldStr !== '' || newStr !== '') {
-    return { added: countLines(newStr), removed: countLines(oldStr) };
-  }
-
-  if (event.hook_event === 'postToolUse') {
-    return extractPostToolUseLineDeltas(ctx);
-  }
-
-  return { added: 0, removed: 0 };
-}
-
-function parseToolInput(toolInput) {
-  if (toolInput && typeof toolInput === 'object') return toolInput;
-  if (typeof toolInput === 'string' && toolInput.trim()) {
-    try {
-      const parsed = JSON.parse(toolInput);
-      if (parsed && typeof parsed === 'object') return parsed;
-    } catch {
-      // ignore malformed tool_input payloads
-    }
-  }
-  return {};
-}
-
-function extractPostToolUseLineDeltas(ctx) {
-  const toolName = ctx.tool_name ?? ctx.toolName ?? '';
-  const toolInput = parseToolInput(ctx.tool_input ?? ctx.toolInput);
-
-  if (toolName === 'Write') {
-    const contents = toolInput.contents ?? toolInput.content ?? '';
-    return { added: countLines(contents), removed: 0 };
-  }
-
-  if (toolName === 'StrReplace') {
-    const oldStr = toolInput.old_string ?? toolInput.oldString ?? '';
-    const newStr = toolInput.new_string ?? toolInput.newString ?? '';
-    return { added: countLines(newStr), removed: countLines(oldStr) };
-  }
-
-  if (toolName === 'ApplyPatch') {
-    const patch = toolInput.patch ?? toolInput.contents ?? '';
-    if (typeof patch !== 'string') return { added: 0, removed: 0 };
-    let added = 0;
-    let removed = 0;
-    for (const line of patch.split('\n')) {
-      if (line.startsWith('+') && !line.startsWith('+++')) added++;
-      else if (line.startsWith('-') && !line.startsWith('---')) removed++;
-    }
-    return { added, removed };
-  }
-
-  return { added: 0, removed: 0 };
 }
 
 function isChurnEvent(event) {

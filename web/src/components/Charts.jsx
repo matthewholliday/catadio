@@ -583,6 +583,7 @@ const EVENT_TYPE_META = {
   beforeMCPExecution: { symbol: '⊞', label: 'mcp-before' },
   afterMCPExecution: { symbol: '⊞', label: 'mcp-after' },
   postToolUse: { symbol: '⚙', label: 'tool-use' },
+  notification: { symbol: '✋', label: 'notification' },
 };
 
 const DEFAULT_EVENT_META = { symbol: '·', label: 'unknown' };
