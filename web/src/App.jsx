@@ -727,9 +727,9 @@ export default function App() {
             </header>
           )}
 
-          <main className={`mx-auto min-h-0 w-full max-w-[1600px] flex-1 overflow-auto px-4 ${highDensity ? 'py-2' : 'py-4'}`}>
+          <main className={`mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 overflow-hidden px-4 ${highDensity ? 'gap-1.5 py-2' : 'gap-3 py-4'}`}>
             {showEmptyState ? (
-              <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
+              <div className="flex min-h-[60vh] flex-1 flex-col items-center justify-center text-center">
                 <h2 className="text-2xl font-semibold text-fg">No project selected</h2>
                 <p className="mt-2 max-w-md text-fg-soft">
                   Open a Cursor or Claude Code project folder to install dashboard hooks and start
@@ -745,33 +745,36 @@ export default function App() {
               </div>
             ) : (
               <>
-                <Panel
-                  title={panels.events.title}
-                  subtitle={panels.events.subtitle}
-                  tooltip={panels.events.tooltip}
-                  collapsible
-                  className={highDensity ? 'mb-1.5' : 'mb-3'}
-                >
-                  {panels.events.render()}
-                </Panel>
+                <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={panelOrder} strategy={rectSortingStrategy}>
+                      <div
+                        className={`grid grid-cols-1 items-stretch sm:grid-cols-2 ${
+                          highDensity
+                            ? 'gap-1.5 lg:grid-cols-3 xl:grid-cols-4'
+                            : 'gap-3 lg:grid-cols-2 xl:grid-cols-3'
+                        }`}
+                      >
+                        {panelOrder.map((id) => (
+                          <SortablePanel key={id} id={id}>
+                            {({ dragHandleProps }) => panelContent[id]?.(dragHandleProps)}
+                          </SortablePanel>
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                </div>
 
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                  <SortableContext items={panelOrder} strategy={rectSortingStrategy}>
-                    <div
-                      className={`grid grid-cols-1 items-stretch sm:grid-cols-2 ${
-                        highDensity
-                          ? 'gap-1.5 lg:grid-cols-4 xl:grid-cols-6'
-                          : 'gap-3 lg:grid-cols-3'
-                      }`}
-                    >
-                      {panelOrder.map((id) => (
-                        <SortablePanel key={id} id={id}>
-                          {({ dragHandleProps }) => panelContent[id]?.(dragHandleProps)}
-                        </SortablePanel>
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
+                <aside className={`flex min-h-0 shrink-0 flex-col ${highDensity ? 'w-72' : 'w-80'}`}>
+                  <Panel
+                    title={panels.events.title}
+                    subtitle={panels.events.subtitle}
+                    tooltip={panels.events.tooltip}
+                    className="h-full"
+                  >
+                    <Events events={metrics.eventFeed} fill />
+                  </Panel>
+                </aside>
               </>
             )}
           </main>

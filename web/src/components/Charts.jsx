@@ -602,7 +602,7 @@ function abbreviateModel(model) {
     .replace(/-latest$/, '');
 }
 
-export function Events({ events = [] }) {
+export function Events({ events = [], fill = false }) {
   const mode = useLayoutMode();
   const theme = useTheme();
   const tc = THEME_COLORS[theme];
@@ -610,7 +610,7 @@ export function Events({ events = [] }) {
   const listRef = useRef(null);
   const padding = dense ? 'px-2 py-2' : 'px-3 py-3';
   const textSize = dense ? 'text-[10px]' : 'text-xs';
-  const height = dense ? 'h-36' : 'h-48';
+  const height = fill ? 'min-h-0 flex-1' : dense ? 'h-36' : 'h-48';
 
   const lastId = events[events.length - 1]?.id;
   useLayoutEffect(() => {
